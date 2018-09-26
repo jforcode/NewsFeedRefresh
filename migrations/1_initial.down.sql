@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS api_source;
+DROP TABLE IF EXISTS source;
+DROP TABLE IF EXISTS article;
