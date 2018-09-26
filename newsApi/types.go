@@ -1,15 +1,31 @@
 package newsApi
 
 import (
+	"database/sql"
 	"time"
 )
 
-type ArticleSource struct {
-	Id   string `json:"id"`
-	Name string `json:"name"`
+// app types
+type Env struct {
+	db     *sql.DB
+	apiKey string
+	apiUrl string
 }
 
-type Source struct {
+type RecordStatus string
+
+// db types
+type Flag struct {
+	Id_           int
+	Key           string
+	Value         string
+	CreatedAt     time.Time
+	LastUpdatedAt time.Time
+	Status        string
+}
+
+// NewsAPI response types
+type ApiSource struct {
 	Id          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
@@ -19,27 +35,32 @@ type Source struct {
 	Country     string `json:"country"`
 }
 
-type Article struct {
-	Source      ArticleSource `json:"source"`
-	Author      string        `json:"author"`
-	Title       string        `json:"title"`
-	Description string        `json:"description"`
-	URL         string        `json:"url"`
-	URLToImage  string        `json:"urlToImage"`
-	PublishedAt time.Time     `json:"publishedAt"`
+type ApiSourcesResponse struct {
+	Status       string      `json:"status"`
+	Sources      []ApiSource `json:"sources"`
+	ErrorCode    string      `json:"code"`
+	ErrorMessage string      `json:"message"`
 }
 
-type SourceApiResponse struct {
-	Status       string   `json:"status"`
-	Sources      []Source `json:"sources"`
-	ErrorCode    string   `json:"code"`
-	ErrorMessage string   `json:"message"`
+type ApiArticleSource struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
 }
 
-type NewsApiResponse struct {
-	Status       string    `json:"status"`
-	TotalResults int       `json:"totalResults"`
-	Articles     []Article `json:"articles"`
-	ErrorCode    string    `json:"code"`
-	ErrorMessage string    `json:"message"`
+type ApiArticle struct {
+	Source      ApiArticleSource `json:"source"`
+	Author      string           `json:"author"`
+	Title       string           `json:"title"`
+	Description string           `json:"description"`
+	URL         string           `json:"url"`
+	URLToImage  string           `json:"urlToImage"`
+	PublishedAt time.Time        `json:"publishedAt"`
+}
+
+type ApiArticlesResponse struct {
+	Status       string       `json:"status"`
+	TotalResults int          `json:"totalResults"`
+	Articles     []ApiArticle `json:"articles"`
+	ErrorCode    string       `json:"code"`
+	ErrorMessage string       `json:"message"`
 }
