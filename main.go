@@ -2,8 +2,10 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 
-	"github.com/jforcode/NewsFeedRefresh/newsApi"
+	"github.com/jforcode/NewsFeedRefresh/modules/feedSrv"
+	"github.com/jforcode/NewsFeedRefresh/modules/newsApi"
 	"github.com/magiconair/properties"
 )
 
@@ -12,10 +14,27 @@ func main() {
 	dataSource := p.GetString("datasource", "")
 	apiKey := p.GetString("apiKey", "")
 	apiUrl := p.GetString("apiUrl", "")
-	db, _ := initDb(dataSource)
 
-	newsApi.Init(db, apiKey, apiUrl)
-	newsApi.StartFetch()
+	db, err := initDb(dataSource)
+	if err != nil {
+		fmt.Println("Error: " + err.Error())
+		return
+	}
+
+	apiMain, err := newsApi.Init(db, apiKey, apiUrl)
+	if err != nil {
+		fmt.Println("Error: " + err.Error())
+		return
+	}
+
+	feedMain, err := feedSrv.Init(db)
+	if err != nil {
+		fmt.Println("Error: " + err.Error())
+		return
+	}
+
+	apiMain.StartFetch()
+	fmt.Println(feedMain)
 }
 
 func initDb(dataSource string) (*sql.DB, error) {

@@ -5,26 +5,25 @@ import (
 	"errors"
 )
 
-type NewsApi struct {
+type Main struct {
 	db  *MainDb
 	api *Api
 }
 
-func (main *NewsApi) Init(db *sql.DB, apiKey, apiUrl string) error {
+func Init(db *sql.DB, apiKey, apiUrl string) (*Main, error) {
 	if db == nil || apiKey == "" || apiUrl == "" {
-		return errors.New("Invalid parameters")
+		return nil, errors.New("Invalid parameters")
 	}
 
-	main.db = &MainDb{}
-	main.api = &Api{}
+	main := Main{db: &MainDb{}, api: &Api{}}
 
 	main.db.Init(db)
 	main.api.Init(apiUrl, apiKey)
 
-	return nil
+	return &main, nil
 }
 
-func StartFetch() {
+func (main *Main) StartFetch() {
 	// need params:
 	// - apiBaseUrl, apiKey
 	// db flags:
