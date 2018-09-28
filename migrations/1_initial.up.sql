@@ -1,4 +1,16 @@
-CREATE TABLE api_source (
+CREATE TABLE news_api_flags (
+  _id INTEGER PRIMARY KEY AUTO_INCREMENT,
+  key VARCHAR(255),
+  value VARCHAR(255),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  status VARCHAR(255) DEFAULT 'Active'
+) CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+INSERT INTO news_api_flags (key, value)
+VALUES ('remaining_requests', '1000');
+
+CREATE TABLE api_sources (
   _id INTEGER PRIMARY KEY AUTO_INCREMENT,
   name VARCHAR(100),
   domain_url VARCHAR(255),
@@ -11,7 +23,10 @@ CREATE TABLE api_source (
   status VARCHAR(255) DEFAULT 'Active'
 ) CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-CREATE TABLE source (
+INSERT INTO api_sources (name, domain_url, api_home_url, api_url, attribution_name, attribution_label)
+VALUES ('news_api', 'https://newsapi.org', 'https://newsapi.org', 'https://newsapi.org/v2', 'News API', 'Powered by News API');
+
+CREATE TABLE sources (
   _id INTEGER PRIMARY KEY AUTO_INCREMENT,
   api_source_name VARCHAR(100) COMMENT 'refers api_source(name)',
   s_id VARCHAR(255),
@@ -26,7 +41,7 @@ CREATE TABLE source (
   status VARCHAR(255) DEFAULT 'Active'
 ) CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-CREATE TABLE article (
+CREATE TABLE articles (
   _id INTEGER PRIMARY KEY AUTO_INCREMENT,
   api_source_name VARCHAR(100) COMMENT 'refers api_source(name)',
   source_id VARCHAR(255) COMMENT 'refers source(s_id)',
@@ -41,6 +56,3 @@ CREATE TABLE article (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   status VARCHAR(255) DEFAULT 'Active'
 ) CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
-
-INSERT INTO api_source (name, domain_url, api_home_url, api_url, attribution_name, attribution_label)
-VALUES ('news_api', 'https://newsapi.org', 'https://newsapi.org', 'https://newsapi.org/v2', 'News API', 'Powered by News API');

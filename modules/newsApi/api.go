@@ -9,18 +9,20 @@ import (
 )
 
 type Api struct {
-	url string
-	key string
+	url    string
+	key    string
+	client *http.Client
 }
 
-func (api *Api) Init(url, key string) {
+func (api *Api) Init(url, key string) error {
 	api.url = url
 	api.key = key
+	api.client = &http.Client{}
+
+	return nil
 }
 
-func (api *Api) get(endpoint string, params map[string]string) (*http.Response, error) {
-	client := &http.Client{}
-
+func (api *Api) get(endpoint string, params map[string]string) ([]byte, error) {
 	req, err := http.NewRequest("GET", api.url+"/"+endpoint, nil)
 	if err != nil {
 		return nil, err
@@ -36,22 +38,26 @@ func (api *Api) get(endpoint string, params map[string]string) (*http.Response, 
 		req.URL.RawQuery = q.Encode()
 	}
 
-	resp, err := client.Do(req)
+	resp, err := api.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, errors.New("HTTP Status Error: " + resp.Status)
 	}
 
-	return resp, nil
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return bodyBytes, nil
 }
 
 func (api *Api) fetchSources() (*ApiSourcesResponse, error) {
-	resp, err := api.get("sources", nil)
-	defer resp.Body.Close()
-
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	bodyBytes, err := api.get("sources", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -70,10 +76,7 @@ func (api *Api) fetchArticles(sourceIds string, pageNum, pageSize int) (*ApiArti
 	params["page"] = strconv.Itoa(pageNum)
 	params["pageSize"] = strconv.Itoa(pageSize)
 
-	resp, err := api.get("everything", params)
-	defer resp.Body.Close()
-
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	bodyBytes, err := api.get("everything", params)
 	if err != nil {
 		return nil, err
 	}

@@ -1,27 +1,27 @@
 package newsApi
 
 import (
-	"database/sql"
 	"time"
+
+	"github.com/jforcode/NewsFeedRefresh/modules/common"
 )
-
-// app types
-type Env struct {
-	db     *sql.DB
-	apiKey string
-	apiUrl string
-}
-
-type RecordStatus string
 
 // db types
 type Flag struct {
-	Id_           int
-	Key           string
-	Value         string
-	CreatedAt     time.Time
-	LastUpdatedAt time.Time
-	Status        string
+	common.DbRecord
+	Id_   int
+	Key   string
+	Value string
+}
+
+type ApiError struct {
+	status  string
+	code    string
+	message string
+}
+
+func (apiErr *ApiError) Error() string {
+	return apiErr.code + " (" + apiErr.status + ") - " + apiErr.message
 }
 
 // NewsAPI response types
