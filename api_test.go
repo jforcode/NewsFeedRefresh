@@ -1,4 +1,4 @@
-package newsApi
+package main
 
 import (
 	"fmt"

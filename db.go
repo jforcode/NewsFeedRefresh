@@ -1,11 +1,9 @@
-package feedSrv
+package main
 
 import (
 	"database/sql"
 	"errors"
 	"strings"
-
-	"github.com/jforcode/NewsFeedRefresh/modules/common"
 )
 
 type Main struct {
@@ -21,7 +19,7 @@ func Init(db *sql.DB) (*Main, error) {
 	return &main, nil
 }
 
-func (main *Main) SaveSources(sources [](*common.Source)) (int64, error) {
+func (main *Main) SaveSources(sources []*Source) (int64, error) {
 	query := "INSERT INTO source (api_source_name, s_id, name, description, url, category, language, country) VALUES "
 	parameterHolders := make([]string, len(sources))
 	parameters := make([]interface{}, 0)
@@ -35,7 +33,7 @@ func (main *Main) SaveSources(sources [](*common.Source)) (int64, error) {
 	return main.batchInsert(query, parameters)
 }
 
-func (main *Main) SaveArticles(articles [](*common.Article)) (int64, error) {
+func (main *Main) SaveArticles(articles []*Article) (int64, error) {
 	query := "INSERT INTO article (api_source_name, source_id, source_name, author, title, description, url, url_to_image, published_at) VALUES "
 	parameterHolders := make([]string, len(articles))
 	parameters := make([]interface{}, 0)

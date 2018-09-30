@@ -1,4 +1,4 @@
-package newsApi
+package main
 
 import (
 	"encoding/json"
@@ -6,8 +6,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
-
-	"github.com/jforcode/NewsFeedRefresh/modules/common"
 )
 
 type Api struct {
@@ -26,7 +24,7 @@ func (api *Api) Init(url, key string) error {
 	return nil
 }
 
-func (api *Api) FetchSources() ([](*common.Source), error) {
+func (api *Api) FetchSources() ([]*Source, error) {
 	bodyBytes, err := api.get("sources", nil)
 	if err != nil {
 		return nil, err
@@ -37,7 +35,7 @@ func (api *Api) FetchSources() ([](*common.Source), error) {
 		return nil, err
 	}
 
-	sources := make([](*common.Source), len(sourceResponse.Sources))
+	sources := make([]*Source, len(sourceResponse.Sources))
 	for index, apiSource := range sourceResponse.Sources {
 		sources[index] = api.convertSource(&apiSource)
 	}
@@ -45,7 +43,7 @@ func (api *Api) FetchSources() ([](*common.Source), error) {
 	return sources, nil
 }
 
-func (api *Api) FetchArticles(sourceIds string, pageNum, pageSize int) ([](*common.Article), error) {
+func (api *Api) FetchArticles(sourceIds string, pageNum, pageSize int) ([]*Article, error) {
 	params := make(map[string]string)
 	params["sources"] = sourceIds
 	params["page"] = strconv.Itoa(pageNum)
@@ -61,7 +59,7 @@ func (api *Api) FetchArticles(sourceIds string, pageNum, pageSize int) ([](*comm
 		return nil, err
 	}
 
-	articles := make([](*common.Article), len(articleResponse.Articles))
+	articles := make([]*Article, len(articleResponse.Articles))
 	for index, apiArticle := range articleResponse.Articles {
 		articles[index] = api.convertArticle(&apiArticle)
 	}
@@ -71,8 +69,8 @@ func (api *Api) FetchArticles(sourceIds string, pageNum, pageSize int) ([](*comm
 
 // TODO: json anyway to copy from one structure to another only some values
 // basicaly any way to reduce the code here.
-func (api *Api) convertSource(apiSource *ApiSource) *common.Source {
-	source := common.Source{
+func (api *Api) convertSource(apiSource *ApiSource) *Source {
+	source := Source{
 		ApiSourceName: api.sourceName,
 		SourceId:      apiSource.Id,
 		Name:          apiSource.Name,
@@ -86,8 +84,8 @@ func (api *Api) convertSource(apiSource *ApiSource) *common.Source {
 	return &source
 }
 
-func (api *Api) convertArticle(apiArticle *ApiArticle) *common.Article {
-	article := common.Article{
+func (api *Api) convertArticle(apiArticle *ApiArticle) *Article {
+	article := Article{
 		ApiSourceName: api.sourceName,
 		Author:        apiArticle.Author,
 		Title:         apiArticle.Title,
