@@ -4,10 +4,16 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/jforcode/NewsFeedRefresh/modules/common"
 	"github.com/jforcode/NewsFeedRefresh/modules/feedSrv"
 	"github.com/jforcode/NewsFeedRefresh/modules/newsApi"
 	"github.com/magiconair/properties"
 )
+
+type Main struct {
+	apiMain  *newsApi.Main
+	feedMain *feedSrv.Main
+}
 
 func main() {
 	p := properties.MustLoadFile("app.properties", properties.UTF8)
@@ -16,7 +22,7 @@ func main() {
 	apiUrl := p.GetString("apiUrl", "")
 	requestLimit := p.GetInt("requestLimit", 0)
 
-	db, err := initDb(dataSource)
+	db, err := sql.Open("mysql", dataSource)
 	if err != nil {
 		fmt.Println("Error: " + err.Error())
 		return
@@ -34,33 +40,27 @@ func main() {
 		return
 	}
 
-	chSources := make(chan []newsApi.ApiSource)
-	chArticles := make(chan []newsApi.ApiArticle)
-	go apiMain.StartFetch(chSources, chArticles)
-
-	select {
-	case <-chSources:
-		sources := <-chSources
-		// convert, then save
-		fmt.Println(sources)
-
-	case <-chArticles:
-		articles := <-chArticles
-		fmt.Println(articles)
-	}
-
-	fmt.Println(feedMain)
+	main := &Main{}
+	main.Init(apiMain, feedMain)
+	main.Start()
 }
 
-func initDb(dataSource string) (*sql.DB, error) {
-	db, err := sql.Open("mysql", dataSource)
-	if err != nil {
-		return nil, err
-	}
+func (main *Main) Init(apiMain *newsApi.Main, feedMain *feedSrv.Main) {
+	main.apiMain = apiMain
+	main.feedMain = feedMain
+}
 
-	if err = db.Ping(); err != nil {
-		return nil, err
-	}
+func (main *Main) Start() {
+	chSources := make(chan [](*common.Source))
+	chArticles := make(chan [](*common.Article))
 
-	return db, nil
+	go main.apiMain.StartFetch(chSources, chArticles)
+	select {
+	case <-chSources:
+		go main.feedMain.SaveSources(<-chSources)
+	case <-chArticles:
+		go main.feedMain.SaveArticles(<-chArticles)
+
+		// TODO: probably error channels
+	}
 }

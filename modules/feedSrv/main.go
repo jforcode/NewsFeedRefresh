@@ -3,7 +3,9 @@ package feedSrv
 import (
 	"database/sql"
 	"errors"
-	"log"
+	"strings"
+
+	"github.com/jforcode/NewsFeedRefresh/modules/common"
 )
 
 type Main struct {
@@ -19,41 +21,49 @@ func Init(db *sql.DB) (*Main, error) {
 	return &main, nil
 }
 
-// TODO: bulk insert
-// TODO: return number inserted
-// TODO: proper logs
-func (main *Main) SaveSources(apiSourceName string, sources []Source) error {
-	stmt, err := main.db.Prepare("INSERT INTO source (api_source_name, s_id, name, description, url, category, language, country) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
-	if err != nil {
-		return err
-	}
+func (main *Main) SaveSources(sources [](*common.Source)) (int64, error) {
+	query := "INSERT INTO source (api_source_name, s_id, name, description, url, category, language, country) VALUES "
+	parameterHolders := make([]string, len(sources))
+	parameters := make([]interface{}, 0)
 
 	for index, source := range sources {
-		log.Printf("Saving source: %+v", source)
-		_, err := stmt.Exec(apiSourceName, source.SourceId, source.Name, source.Description, source.Url, source.Category, source.Language, source.Country)
-		if err != nil {
-			log.Printf("Error while saving source %d: %s", index, err.Error())
-		}
-		log.Print("Saved")
+		parameterHolders[index] = "(?, ?, ?, ?, ?, ?, ?, ?)"
+		parameters = append(parameters, source.ApiSourceName, source.SourceId, source.Name, source.Description, source.Url, source.Category, source.Language, source.Country)
 	}
 
-	return nil
+	query = query + strings.Join(parameterHolders, ",")
+	return main.batchInsert(query, parameters)
 }
 
-func (main *Main) SaveArticles(apiSourceName string, articles []Article) error {
-	stmt, err := main.db.Prepare("INSERT INTO article (api_source_name, source_id, source_name, author, title, description, url, url_to_image, published_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
-	if err != nil {
-		return err
-	}
+func (main *Main) SaveArticles(articles [](*common.Article)) (int64, error) {
+	query := "INSERT INTO article (api_source_name, source_id, source_name, author, title, description, url, url_to_image, published_at) VALUES "
+	parameterHolders := make([]string, len(articles))
+	parameters := make([]interface{}, 0)
 
 	for index, article := range articles {
-		log.Printf("Saving article: %+v", article)
-		_, err := stmt.Exec(apiSourceName, article.SourceId, article.SourceName, article.Author, article.Title, article.Description, article.Url, article.UrlToImage, article.PublishedAt)
-		if err != nil {
-			log.Printf("Error while saving article %d: %s", index, err.Error())
-		}
-		log.Print("Saved")
+		parameterHolders[index] = "(?, ?, ?, ?, ?, ?, ?, ?, ?)"
+		parameters = append(parameters, article.ApiSourceName, article.SourceId, article.SourceName, article.Author, article.Title, article.Description, article.Url, article.UrlToImage, article.PublishedAt)
 	}
 
-	return nil
+	query = query + strings.Join(parameterHolders, ",")
+	return main.batchInsert(query, parameters)
+}
+
+func (main *Main) batchInsert(query string, parameters ...interface{}) (int64, error) {
+	stmt, err := main.db.Prepare(query)
+	if err != nil {
+		return -1, err
+	}
+
+	res, err := stmt.Exec(parameters)
+	if err != nil {
+		return -1, err
+	}
+
+	numInserted, err := res.RowsAffected()
+	if err != nil {
+		return -1, err
+	}
+
+	return numInserted, err
 }

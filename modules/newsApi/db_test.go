@@ -15,7 +15,8 @@ func freshDb() *sql.DB {
 	return db
 }
 
-// integeration testing with database
+// TODO: mock a db, and test with that
+// or test it with a test db
 func TestGetFlags(t *testing.T) {
 	t.Run("get flags", func(t *testing.T) {
 		t.Run("called with empty key", func(t *testing.T) {
