@@ -42,7 +42,7 @@ type Flag struct {
 	DbRecord
 	Id_   int
 	Key   string
-	Value string
+	Value interface{}
 }
 
 type ApiError struct {

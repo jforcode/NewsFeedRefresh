@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"errors"
+	"strconv"
 	"strings"
 )
 
@@ -19,7 +20,7 @@ func (main *DbMain) Init(db *sql.DB) error {
 	return nil
 }
 
-func (main *DbMain) GetFlag(key string) (*Flag, error) {
+func (main *DbMain) GetFlag(key, typeTo string) (*Flag, error) {
 	query := "SELECT _id, flag_key, flag_value, created_at, updated_at, status FROM news_api_flags WHERE flag_key = ?"
 	rows, err := main.db.Query(query, key)
 	if err != nil {
@@ -29,15 +30,33 @@ func (main *DbMain) GetFlag(key string) (*Flag, error) {
 
 	if rows.Next() {
 		flag := &Flag{}
-		rows.Scan(flag.Id_, flag.Key, flag.Value, flag.CreatedAt, flag.UpdatedAt, flag.Status)
+		var value string
+		rows.Scan(&flag.Id_, &flag.Key, &value, &flag.CreatedAt, &flag.UpdatedAt, &flag.Status)
+
+		switch typeTo {
+		case "string":
+			flag.Value = value
+
+		case "int":
+			flag.Value, err = strconv.Atoi(value)
+			if err != nil {
+				return nil, errors.New("Invalid type int: " + err.Error())
+			}
+
+		case "bool":
+			flag.Value, err = strconv.ParseBool(value)
+			if err != nil {
+				return nil, errors.New("Invalid type bool: " + err.Error())
+			}
+		}
 		return flag, nil
 	}
 
 	return nil, nil
 }
 
-func (main *DbMain) SetFlag(key string, value string) error {
-	flag, err := main.GetFlag(key)
+func (main *DbMain) SetFlag(key, value, typeTo string) error {
+	flag, err := main.GetFlag(key, typeTo)
 	if err != nil {
 		return err
 	}
@@ -145,14 +164,14 @@ func (main *DbMain) SaveArticles(articles []*Article) (int64, error) {
 	return main.batchInsert(query, parameters)
 }
 
-func (main *DbMain) batchInsert(query string, parameters ...interface{}) (int64, error) {
+func (main *DbMain) batchInsert(query string, parameters []interface{}) (int64, error) {
 	prefix := "main.DbMain.batchInsert"
 	stmt, err := main.db.Prepare(query)
 	if err != nil {
 		return -1, errors.New(prefix + " (Prepare): " + err.Error())
 	}
 
-	res, err := stmt.Exec(parameters)
+	res, err := stmt.Exec(parameters...)
 	if err != nil {
 		return -1, errors.New(prefix + " (Exec): " + err.Error())
 	}

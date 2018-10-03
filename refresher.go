@@ -15,21 +15,24 @@ type Refresher struct {
 
 func (refr *Refresher) StartRefresh() error {
 	prefix := "main.Refresher.StartRefresh"
-	err := refr.CheckSources()
-	if err != nil {
-		return errors.New(prefix + " (check sources): " + err.Error())
-	}
-
-	err = refr.CheckRemainingRequests()
+	err := refr.CheckRemainingRequests()
 	if err != nil {
 		return errors.New(prefix + " (check requests): " + err.Error())
 	}
 
-	flagNumRequests, err := refr.dbMain.GetFlag("remaining_requests")
+	err = refr.CheckSources()
+	if err != nil {
+		return errors.New(prefix + " (check sources): " + err.Error())
+	}
+
+	flagNumRequests, err := refr.dbMain.GetFlag("remaining_requests", "int")
 	if err != nil {
 		return errors.New(prefix + " (get flag requests): " + err.Error())
 	}
-	remainingRequests := refr.util.GetInt(flagNumRequests, 1000)
+	remainingRequests := 1000
+	if flagNumRequests != nil {
+		remainingRequests = flagNumRequests.Value.(int)
+	}
 
 	sources, err := refr.dbMain.GetSources()
 	if err != nil {
@@ -51,7 +54,7 @@ func (refr *Refresher) CheckSources() error {
 	today := time.Now()
 	monthStart := time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, today.Location())
 
-	flagSrcRefreshed, err := refr.dbMain.GetFlag("sources_refreshed")
+	flagSrcRefreshed, err := refr.dbMain.GetFlag("sources_refreshed", "bool")
 	if err != nil {
 		return errors.New(prefix + " (get flag sources): " + err.Error())
 	}
@@ -67,7 +70,7 @@ func (refr *Refresher) CheckSources() error {
 			return errors.New(prefix + " (save sources): " + err.Error())
 		}
 
-		err = refr.dbMain.SetFlag("sources_refreshed", "TRUE")
+		err = refr.dbMain.SetFlag("sources_refreshed", "TRUE", "bool")
 		if err != nil {
 			return errors.New(prefix + " (set flag sources): " + err.Error())
 		}
@@ -80,13 +83,13 @@ func (refr *Refresher) CheckRemainingRequests() error {
 	today := time.Now()
 	dayStart := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, today.Location())
 
-	flagNumRequests, err := refr.dbMain.GetFlag("remaining_requests")
+	flagNumRequests, err := refr.dbMain.GetFlag("remaining_requests", "int")
 	if err != nil {
 		return err
 	}
 
 	if flagNumRequests == nil || flagNumRequests.UpdatedAt.Before(dayStart) {
-		err := refr.dbMain.SetFlag("remaining_requests", "1000")
+		err := refr.dbMain.SetFlag("remaining_requests", "1000", "int")
 		if err != nil {
 			return err
 		}
@@ -131,7 +134,7 @@ func (refr *Refresher) FetchArticles(sources []*Source, remainingRequests int, c
 		}
 
 		pageNum++
-		refr.dbMain.SetFlag("remaining_requests", strconv.Itoa(remainingRequests))
+		refr.dbMain.SetFlag("remaining_requests", strconv.Itoa(remainingRequests), "int")
 		time.Sleep(1 * time.Hour)
 
 	}

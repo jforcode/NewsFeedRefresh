@@ -17,7 +17,7 @@ func (util *Util) GetInt(flag *Flag, defaultValue int) int {
 		return defaultValue
 	}
 
-	ret, err := strconv.Atoi(flag.Value)
+	ret, err := strconv.Atoi(flag.Value.(string))
 	if err != nil {
 		return defaultValue
 	}
@@ -30,7 +30,7 @@ func (util *Util) GetBoolean(flag *Flag, defaultValue bool) bool {
 		return defaultValue
 	}
 
-	ret, err := strconv.ParseBool(flag.Value)
+	ret, err := strconv.ParseBool(flag.Value.(string))
 	if err != nil {
 		return defaultValue
 	}
