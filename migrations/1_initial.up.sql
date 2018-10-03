@@ -1,16 +1,16 @@
-CREATE TABLE news_api_flags (
+CREATE TABLE IF NOT EXISTS news_api_flags (
   _id INTEGER PRIMARY KEY AUTO_INCREMENT,
-  key VARCHAR(255),
-  value VARCHAR(255),
+  flag_key VARCHAR(255),
+  flag_value VARCHAR(255),
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   status VARCHAR(255) DEFAULT 'Active'
 ) CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-INSERT INTO news_api_flags (key, value)
+INSERT INTO news_api_flags (flag_key, flag_value)
 VALUES ('remaining_requests', '1000');
 
-CREATE TABLE api_sources (
+CREATE TABLE IF NOT EXISTS api_sources (
   _id INTEGER PRIMARY KEY AUTO_INCREMENT,
   name VARCHAR(100),
   domain_url VARCHAR(255),
@@ -26,7 +26,7 @@ CREATE TABLE api_sources (
 INSERT INTO api_sources (name, domain_url, api_home_url, api_url, attribution_name, attribution_label)
 VALUES ('news_api', 'https://newsapi.org', 'https://newsapi.org', 'https://newsapi.org/v2', 'News API', 'Powered by News API');
 
-CREATE TABLE sources (
+CREATE TABLE IF NOT EXISTS sources (
   _id INTEGER PRIMARY KEY AUTO_INCREMENT,
   api_source_name VARCHAR(100) COMMENT 'refers api_source(name)',
   s_id VARCHAR(255),
@@ -41,7 +41,7 @@ CREATE TABLE sources (
   status VARCHAR(255) DEFAULT 'Active'
 ) CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-CREATE TABLE articles (
+CREATE TABLE IF NOT EXISTS articles (
   _id INTEGER PRIMARY KEY AUTO_INCREMENT,
   api_source_name VARCHAR(100) COMMENT 'refers api_source(name)',
   source_id VARCHAR(255) COMMENT 'refers source(s_id)',

@@ -2,8 +2,8 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/magiconair/properties"
 )
 
@@ -12,13 +12,23 @@ func main() {
 	dataSource := p.GetString("datasource", "")
 	apiKey := p.GetString("apiKey", "")
 	apiUrl := p.GetString("apiUrl", "")
-	requestLimit := p.GetInt("requestLimit", 0)
 
 	db, err := sql.Open("mysql", dataSource)
 	if err != nil {
-		fmt.Println("Error: " + err.Error())
-		return
+		panic(err)
 	}
 
-	fmt.Println(dataSource, apiKey, apiUrl, requestLimit, db)
+	api := &NewsApi{}
+	api.Init(apiUrl, apiKey, "news_api")
+
+	dbMain := &DbMain{}
+	dbMain.Init(db)
+
+	util := &Util{}
+
+	main := &Refresher{api, dbMain, util}
+	err = main.StartRefresh()
+	if err != nil {
+		panic(err)
+	}
 }

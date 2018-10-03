@@ -1,3 +1,4 @@
-DROP TABLE IF EXISTS api_source;
-DROP TABLE IF EXISTS source;
-DROP TABLE IF EXISTS article;
+DROP TABLE IF EXISTS news_api_flags;
+DROP TABLE IF EXISTS api_sources;
+DROP TABLE IF EXISTS sources;
+DROP TABLE IF EXISTS articles;

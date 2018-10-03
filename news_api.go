@@ -6,25 +6,26 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
-type Api struct {
+type NewsApi struct {
 	url        string
 	key        string
-	client     *http.Client
 	sourceName string
+	client     *http.Client
 }
 
-func (api *Api) Init(url, key string) error {
+func (api *NewsApi) Init(url, key, sourceName string) error {
 	api.url = url
 	api.key = key
 	api.client = &http.Client{}
-	api.sourceName = "news_api"
+	api.sourceName = sourceName
 
 	return nil
 }
 
-func (api *Api) FetchSources() ([]*Source, error) {
+func (api *NewsApi) FetchSources() ([]*Source, error) {
 	bodyBytes, err := api.get("sources", nil)
 	if err != nil {
 		return nil, err
@@ -43,9 +44,9 @@ func (api *Api) FetchSources() ([]*Source, error) {
 	return sources, nil
 }
 
-func (api *Api) FetchArticles(sourceIds string, pageNum, pageSize int) ([]*Article, error) {
+func (api *NewsApi) FetchArticles(sourceIds []string, pageNum, pageSize int) ([]*Article, error) {
 	params := make(map[string]string)
-	params["sources"] = sourceIds
+	params["sources"] = strings.Join(sourceIds, ",")
 	params["page"] = strconv.Itoa(pageNum)
 	params["pageSize"] = strconv.Itoa(pageSize)
 
@@ -69,7 +70,7 @@ func (api *Api) FetchArticles(sourceIds string, pageNum, pageSize int) ([]*Artic
 
 // TODO: json anyway to copy from one structure to another only some values
 // basicaly any way to reduce the code here.
-func (api *Api) convertSource(apiSource *ApiSource) *Source {
+func (api *NewsApi) convertSource(apiSource *ApiSource) *Source {
 	source := Source{
 		ApiSourceName: api.sourceName,
 		SourceId:      apiSource.Id,
@@ -84,7 +85,7 @@ func (api *Api) convertSource(apiSource *ApiSource) *Source {
 	return &source
 }
 
-func (api *Api) convertArticle(apiArticle *ApiArticle) *Article {
+func (api *NewsApi) convertArticle(apiArticle *ApiArticle) *Article {
 	article := Article{
 		ApiSourceName: api.sourceName,
 		Author:        apiArticle.Author,
@@ -105,7 +106,7 @@ func (api *Api) convertArticle(apiArticle *ApiArticle) *Article {
 
 // TODO: handle errors better
 // if NOT 200 OK, then return a ApiError
-func (api *Api) get(endpoint string, params map[string]string) ([]byte, error) {
+func (api *NewsApi) get(endpoint string, params map[string]string) ([]byte, error) {
 	req, err := http.NewRequest("GET", api.url+"/"+endpoint, nil)
 	if err != nil {
 		return nil, err
