@@ -26,14 +26,15 @@ func (api *NewsApi) Init(url, key, sourceName string) error {
 }
 
 func (api *NewsApi) FetchSources() ([]*Source, error) {
+	prefix := "main.NewsApi.FetchSources"
 	bodyBytes, err := api.get("sources", nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.New(prefix + " (Api Get): " + err.Error())
 	}
 
 	var sourceResponse ApiSourcesResponse
 	if err := json.Unmarshal(bodyBytes, &sourceResponse); err != nil {
-		return nil, err
+		return nil, errors.New(prefix + " (json unmarshal): " + err.Error())
 	}
 
 	sources := make([]*Source, len(sourceResponse.Sources))
@@ -45,6 +46,7 @@ func (api *NewsApi) FetchSources() ([]*Source, error) {
 }
 
 func (api *NewsApi) FetchArticles(sourceIds []string, pageNum, pageSize int) ([]*Article, error) {
+	prefix := "main.NewsApi.FetchArticles"
 	params := make(map[string]string)
 	params["sources"] = strings.Join(sourceIds, ",")
 	params["page"] = strconv.Itoa(pageNum)
@@ -52,12 +54,12 @@ func (api *NewsApi) FetchArticles(sourceIds []string, pageNum, pageSize int) ([]
 
 	bodyBytes, err := api.get("everything", params)
 	if err != nil {
-		return nil, err
+		return nil, errors.New(prefix + " (Api get): " + err.Error())
 	}
 
 	var articleResponse ApiArticlesResponse
 	if err := json.Unmarshal(bodyBytes, &articleResponse); err != nil {
-		return nil, err
+		return nil, errors.New(prefix + " (json unmarshal): " + err.Error())
 	}
 
 	articles := make([]*Article, len(articleResponse.Articles))
@@ -107,9 +109,10 @@ func (api *NewsApi) convertArticle(apiArticle *ApiArticle) *Article {
 // TODO: handle errors better
 // if NOT 200 OK, then return a ApiError
 func (api *NewsApi) get(endpoint string, params map[string]string) ([]byte, error) {
+	prefix := "main.NewsApi.get"
 	req, err := http.NewRequest("GET", api.url+"/"+endpoint, nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.New(prefix + " (http request): " + err.Error())
 	}
 
 	req.Header.Add("X-Api-Key", api.key)
@@ -124,17 +127,17 @@ func (api *NewsApi) get(endpoint string, params map[string]string) ([]byte, erro
 
 	resp, err := api.client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, errors.New(prefix + " (client do): " + err.Error())
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.New("HTTP Status Error: " + resp.Status)
+		return nil, errors.New(prefix + " (HTTP Status Error): " + resp.Status)
 	}
 
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, errors.New(prefix + " (read): " + err.Error())
 	}
 
 	return bodyBytes, nil

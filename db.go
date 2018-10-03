@@ -12,7 +12,7 @@ type DbMain struct {
 
 func (main *DbMain) Init(db *sql.DB) error {
 	if db == nil {
-		return errors.New("Invalid parameters")
+		return errors.New("main.Invalid parameters")
 	}
 
 	main.db = db
@@ -65,26 +65,28 @@ func (main *DbMain) createFlag(key, value string) error {
 }
 
 func (main *DbMain) updateFlag(key, value string) error {
+	prefix := "main.DbMain.updateFlag"
 	query := "INSERT INTO news_api_flags (flag_key, flag_value) VALUES (?, ?)"
 	stmt, err := main.db.Prepare(query)
 	if err != nil {
-		return err
+		return errors.New(prefix + " (Prepare): " + err.Error())
 	}
 	defer stmt.Close()
 
 	_, err = stmt.Exec(key, value)
 	if err != nil {
-		return err
+		return errors.New(prefix + " (Prepare): " + err.Error())
 	}
 
 	return nil
 }
 
 func (main *DbMain) GetSources() ([]*Source, error) {
+	prefix := "main.DbMain.GetSources"
 	query := "SELECT _id, api_source_name, s_id, name, description, url, category, language, country, created_at, updated_at, status FROM sources"
 	rows, err := main.db.Query(query)
 	if err != nil {
-		return nil, err
+		return nil, errors.New(prefix + " (Query): " + err.Error())
 	}
 
 	sources := make([]*Source, 0)
@@ -112,10 +114,11 @@ func (main *DbMain) SaveSources(sources []*Source) (int64, error) {
 }
 
 func (main *DbMain) GetArticles() ([]*Article, error) {
+	prefix := "main.DbMain.GetArticles"
 	query := "SELECT _id, api_source_name, source_id, source_name, author, title, description, url, url_to_image, published_at, created_at, updated_at, status FROM articles"
 	rows, err := main.db.Query(query)
 	if err != nil {
-		return nil, err
+		return nil, errors.New(prefix + " (Query): " + err.Error())
 	}
 
 	articles := make([]*Article, 0)
@@ -143,20 +146,21 @@ func (main *DbMain) SaveArticles(articles []*Article) (int64, error) {
 }
 
 func (main *DbMain) batchInsert(query string, parameters ...interface{}) (int64, error) {
+	prefix := "main.DbMain.batchInsert"
 	stmt, err := main.db.Prepare(query)
 	if err != nil {
-		return -1, err
+		return -1, errors.New(prefix + " (Prepare): " + err.Error())
 	}
 
 	res, err := stmt.Exec(parameters)
 	if err != nil {
-		return -1, err
+		return -1, errors.New(prefix + " (Exec): " + err.Error())
 	}
 
 	numInserted, err := res.RowsAffected()
 	if err != nil {
-		return -1, err
+		return -1, errors.New(prefix + " (Rows Affected): " + err.Error())
 	}
 
-	return numInserted, err
+	return numInserted, nil
 }

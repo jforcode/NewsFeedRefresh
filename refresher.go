@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -13,25 +14,26 @@ type Refresher struct {
 }
 
 func (refr *Refresher) StartRefresh() error {
+	prefix := "main.Refresher.StartRefresh"
 	err := refr.CheckSources()
 	if err != nil {
-		return err
+		return errors.New(prefix + " (check sources): " + err.Error())
 	}
 
 	err = refr.CheckRemainingRequests()
 	if err != nil {
-		return err
+		return errors.New(prefix + " (check requests): " + err.Error())
 	}
 
 	flagNumRequests, err := refr.dbMain.GetFlag("remaining_requests")
 	if err != nil {
-		return err
+		return errors.New(prefix + " (get flag requests): " + err.Error())
 	}
 	remainingRequests := refr.util.GetInt(flagNumRequests, 1000)
 
 	sources, err := refr.dbMain.GetSources()
 	if err != nil {
-		return err
+		return errors.New(prefix + " (get sources): " + err.Error())
 	}
 
 	chArticles := make(chan []*Article)
@@ -45,28 +47,29 @@ func (refr *Refresher) StartRefresh() error {
 }
 
 func (refr *Refresher) CheckSources() error {
+	prefix := "main.Refresher.CheckSources"
 	today := time.Now()
 	monthStart := time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, today.Location())
 
 	flagSrcRefreshed, err := refr.dbMain.GetFlag("sources_refreshed")
 	if err != nil {
-		return err
+		return errors.New(prefix + " (get flag sources): " + err.Error())
 	}
 
 	if flagSrcRefreshed == nil || flagSrcRefreshed.UpdatedAt.Before(monthStart) {
 		sources, err := refr.api.FetchSources()
 		if err != nil {
-			return err
+			return errors.New(prefix + " (fetch sources): " + err.Error())
 		}
 
 		_, err = refr.dbMain.SaveSources(sources)
 		if err != nil {
-			return err
+			return errors.New(prefix + " (save sources): " + err.Error())
 		}
 
 		err = refr.dbMain.SetFlag("sources_refreshed", "TRUE")
 		if err != nil {
-			return err
+			return errors.New(prefix + " (set flag sources): " + err.Error())
 		}
 	}
 
