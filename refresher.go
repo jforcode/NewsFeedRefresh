@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strconv"
 	"time"
+
+	"github.com/golang/glog"
 )
 
 type Refresher struct {
@@ -15,11 +17,14 @@ type Refresher struct {
 
 func (refr *Refresher) StartRefresh() error {
 	prefix := "main.Refresher.StartRefresh"
+
+	glog.Infoln("Checking wether to update remaining requests")
 	err := refr.CheckRemainingRequests()
 	if err != nil {
 		return errors.New(prefix + " (check requests): " + err.Error())
 	}
 
+	glog.Infoln("Checking wether to refresh sources")
 	err = refr.CheckSources()
 	if err != nil {
 		return errors.New(prefix + " (check sources): " + err.Error())
@@ -41,6 +46,7 @@ func (refr *Refresher) StartRefresh() error {
 
 	chArticles := make(chan []*Article)
 
+	glog.Infoln("Fetching articles")
 	go refr.FetchArticles(sources, remainingRequests, chArticles)
 	for articles := range chArticles {
 		go refr.dbMain.SaveArticles(articles)
@@ -60,6 +66,7 @@ func (refr *Refresher) CheckSources() error {
 	}
 
 	if flagSrcRefreshed == nil || flagSrcRefreshed.UpdatedAt.Before(monthStart) {
+		glog.Infoln("refreshing sources. ", flagSrcRefreshed)
 		sources, err := refr.api.FetchSources()
 		if err != nil {
 			return errors.New(prefix + " (fetch sources): " + err.Error())
@@ -80,18 +87,20 @@ func (refr *Refresher) CheckSources() error {
 }
 
 func (refr *Refresher) CheckRemainingRequests() error {
+	prefix := "main.Refresher.CheckRemainingRequests"
 	today := time.Now()
 	dayStart := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, today.Location())
 
 	flagNumRequests, err := refr.dbMain.GetFlag("remaining_requests", "int")
 	if err != nil {
-		return err
+		return errors.New(prefix + " (get remaining requests): " + err.Error())
 	}
 
 	if flagNumRequests == nil || flagNumRequests.UpdatedAt.Before(dayStart) {
+		glog.Infoln("resetting remaining requests for today.", flagNumRequests)
 		err := refr.dbMain.SetFlag("remaining_requests", "1000", "int")
 		if err != nil {
-			return err
+			return errors.New(prefix + " (set remaining requests): " + err.Error())
 		}
 	}
 
@@ -100,6 +109,7 @@ func (refr *Refresher) CheckRemainingRequests() error {
 
 // TODO: should use struct for variables, and in a config, so that it can be changed easily
 func (refr *Refresher) FetchArticles(sources []*Source, remainingRequests int, chArticles chan []*Article) {
+	prefix := "main.Refresher.FetchArticles"
 	batchSize := 20
 	lenSources := len(sources)
 	sourceIds := make([]string, refr.util.MinInt(batchSize, lenSources))
@@ -107,7 +117,6 @@ func (refr *Refresher) FetchArticles(sources []*Source, remainingRequests int, c
 	pageNum := 1
 	pageSize := 100
 	today := time.Now()
-	// 30 minutes before end of day
 	lastMoment := time.Date(today.Year(), today.Month(), today.Day()+1, 0, -30, 0, 0, today.Location())
 
 	for {
@@ -116,14 +125,16 @@ func (refr *Refresher) FetchArticles(sources []*Source, remainingRequests int, c
 
 			if (index+1)%batchSize == 0 || index == lenSources-1 {
 				if time.Now().After(lastMoment) || remainingRequests <= 0 {
+					glog.Infoln("Exiting ", lastMoment, remainingRequests)
 					close(chArticles)
 					return
 				}
 
+				glog.Infoln("Making a request for articles. index: ", index, ", remaining requests: ", remainingRequests, ", pageNum: ", pageNum, ", sourceIds: ", sourceIds)
 				remainingRequests--
 				articles, err := refr.api.FetchArticles(sourceIds, pageNum, pageSize)
 				if err != nil {
-					fmt.Println(err.Error())
+					fmt.Println("Error: " + prefix + " (fetch articles): " + err.Error())
 				} else {
 					chArticles <- articles
 				}
@@ -135,7 +146,6 @@ func (refr *Refresher) FetchArticles(sources []*Source, remainingRequests int, c
 
 		pageNum++
 		refr.dbMain.SetFlag("remaining_requests", strconv.Itoa(remainingRequests), "int")
-		time.Sleep(1 * time.Hour)
-
+		time.Sleep(1 * time.Minute)
 	}
 }
