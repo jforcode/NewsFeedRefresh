@@ -111,7 +111,7 @@ func (main *DbMain) GetSources() ([]*Source, error) {
 	sources := make([]*Source, 0)
 	for rows.Next() {
 		source := &Source{}
-		rows.Scan(source.Id_, source.ApiSourceName, source.SourceId, source.Description, source.Url, source.Category, source.Language, source.Country, source.CreatedAt, source.UpdatedAt, source.Status)
+		rows.Scan(&source.Id_, &source.ApiSourceName, &source.SourceId, &source.Description, &source.Url, &source.Category, &source.Language, &source.Country, &source.CreatedAt, &source.UpdatedAt, &source.Status)
 		sources = append(sources, source)
 	}
 
@@ -143,7 +143,7 @@ func (main *DbMain) GetArticles() ([]*Article, error) {
 	articles := make([]*Article, 0)
 	for rows.Next() {
 		article := &Article{}
-		rows.Scan(article.Id_, article.ApiSourceName, article.SourceId, article.SourceName, article.Author, article.Title, article.Description, article.Url, article.UrlToImage, article.PublishedAt, article.CreatedAt, article.UpdatedAt, article.Status)
+		rows.Scan(&article.Id_, &article.ApiSourceName, &article.SourceId, &article.SourceName, &article.Author, &article.Title, &article.Description, &article.Url, &article.UrlToImage, &article.PublishedAt, &article.CreatedAt, &article.UpdatedAt, &article.Status)
 		articles = append(articles, article)
 	}
 
