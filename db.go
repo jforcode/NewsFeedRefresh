@@ -5,26 +5,26 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+
+	"github.com/golang/glog"
 )
 
 type DbMain struct {
 	db *sql.DB
 }
 
-func (main *DbMain) Init(db *sql.DB) error {
-	if db == nil {
-		return errors.New("main.Invalid parameters")
-	}
-
+func (main *DbMain) Init(db *sql.DB) {
 	main.db = db
-	return nil
 }
 
+// TODO: make typeTo as a proper type with constants
 func (main *DbMain) GetFlag(key, typeTo string) (*Flag, error) {
+	prefix := "main.DbMain.GetFlag"
 	query := "SELECT _id, flag_key, flag_value, created_at, updated_at, status FROM news_api_flags WHERE flag_key = ?"
+
 	rows, err := main.db.Query(query, key)
 	if err != nil {
-		return nil, err
+		return nil, errors.New(prefix + " (query): " + err.Error())
 	}
 	defer rows.Close()
 
@@ -40,15 +40,16 @@ func (main *DbMain) GetFlag(key, typeTo string) (*Flag, error) {
 		case "int":
 			flag.Value, err = strconv.Atoi(value)
 			if err != nil {
-				return nil, errors.New("Invalid type int: " + err.Error())
+				return nil, errors.New(prefix + "Invalid type int: " + err.Error())
 			}
 
 		case "bool":
 			flag.Value, err = strconv.ParseBool(value)
 			if err != nil {
-				return nil, errors.New("Invalid type bool: " + err.Error())
+				return nil, errors.New(prefix + "Invalid type bool: " + err.Error())
 			}
 		}
+
 		return flag, nil
 	}
 
@@ -56,10 +57,12 @@ func (main *DbMain) GetFlag(key, typeTo string) (*Flag, error) {
 }
 
 func (main *DbMain) SetFlag(key, value, typeTo string) error {
+	prefix := "main.DbMain.SetFlag"
 	flag, err := main.GetFlag(key, typeTo)
 	if err != nil {
-		return err
+		return errors.New(prefix + " (get flag): " + err.Error())
 	}
+
 	if flag != nil {
 		return main.updateFlag(key, value)
 	} else {
@@ -67,23 +70,26 @@ func (main *DbMain) SetFlag(key, value, typeTo string) error {
 	}
 }
 
-func (main *DbMain) createFlag(key, value string) error {
+func (main *DbMain) updateFlag(key, value string) error {
+	glog.Infoln("Creating flag with key: " + key + ", value: " + value)
+	prefix := "main.DbMain.createFlag"
 	query := "UPDATE news_api_flags SET flag_value = ? WHERE flag_key = ?"
 	stmt, err := main.db.Prepare(query)
 	if err != nil {
-		return err
+		return errors.New(prefix + " (prepare): " + err.Error())
 	}
 	defer stmt.Close()
 
 	_, err = stmt.Exec(value, key)
 	if err != nil {
-		return err
+		return errors.New(prefix + " (exec): " + err.Error())
 	}
 
 	return nil
 }
 
-func (main *DbMain) updateFlag(key, value string) error {
+func (main *DbMain) createFlag(key, value string) error {
+	glog.Infoln("Updating flag with key: " + key + ", value: " + value)
 	prefix := "main.DbMain.updateFlag"
 	query := "INSERT INTO news_api_flags (flag_key, flag_value) VALUES (?, ?)"
 	stmt, err := main.db.Prepare(query)
@@ -164,7 +170,7 @@ func (main *DbMain) SaveArticles(articles []*Article) (int64, error) {
 	return main.batchInsert(query, parameters)
 }
 
-func (main *DbMain) batchInsert(query string, parameters []interface{}) (int64, error) {
+func (main *DbMain) batchInsert(query string, parameters ...interface{}) (int64, error) {
 	prefix := "main.DbMain.batchInsert"
 	stmt, err := main.db.Prepare(query)
 	if err != nil {
