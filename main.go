@@ -27,11 +27,31 @@ func main() {
 
 	util := &Util{}
 
-	main := &Refresher{api, dbMain, util}
+	refresher := &Refresher{api, dbMain, util}
 
 	glog.Infoln("Starting Refresh")
-	err = main.StartRefresh()
+	err = refresher.StartRefresh()
 	if err != nil {
 		panic(err)
 	}
+}
+
+func GetDb(user, password, host, database string) (*sql.DB, error) {
+	datasource := user +
+		":" + password +
+		"@" + host +
+		"/" + database +
+		"?" + "parseTime=true"
+
+	db, err := sql.Open("mysql", datasource)
+	if err != nil {
+		return nil, err
+	}
+
+	err = db.Ping()
+	if err != nil {
+		return nil, err
+	}
+
+	return db, nil
 }

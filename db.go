@@ -116,9 +116,13 @@ func (main *DbMain) GetSources() ([]*Source, error) {
 
 	sources := make([]*Source, 0)
 	for rows.Next() {
-		source := &Source{}
-		rows.Scan(&source.Id_, &source.ApiSourceName, &source.SourceId, &source.Description, &source.Url, &source.Category, &source.Language, &source.Country, &source.CreatedAt, &source.UpdatedAt, &source.Status)
-		sources = append(sources, source)
+		var source Source
+		err := rows.Scan(&source.Id_, &source.ApiSourceName, &source.SourceId, &source.Name, &source.Description, &source.Url, &source.Category, &source.Language, &source.Country, &source.CreatedAt, &source.UpdatedAt, &source.Status)
+		if err != nil {
+			glog.Errorln(err)
+		}
+
+		sources = append(sources, &source)
 	}
 
 	return sources, nil
@@ -170,7 +174,7 @@ func (main *DbMain) SaveArticles(articles []*Article) (int64, error) {
 	return main.batchInsert(query, parameters)
 }
 
-func (main *DbMain) batchInsert(query string, parameters ...interface{}) (int64, error) {
+func (main *DbMain) batchInsert(query string, parameters []interface{}) (int64, error) {
 	prefix := "main.DbMain.batchInsert"
 	stmt, err := main.db.Prepare(query)
 	if err != nil {

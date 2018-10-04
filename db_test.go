@@ -5,61 +5,31 @@ import (
 	"testing"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/golang/glog"
 )
 
-func GetTestDb() (*DbMain, error) {
-	db, err := sql.Open("mysql", "root:FORGIVEFeb@2018@tcp(127.0.0.1:3306)/news_feed_test")
-	if err != nil {
-		return nil, err
-	}
-
-	err = db.Ping()
-	if err != nil {
-		return nil, err
-	}
-
-	ret := &DbMain{}
-	ret.Init(db)
-
-	return ret, nil
-}
-
-func clearTables(db *sql.DB, tables ...string) {
-	for _, table := range tables {
-		_, err := db.Exec("DELETE FROM " + table)
-		if err != nil {
-			panic(err)
-		}
-	}
-}
-
-func assertRowCount(db *sql.DB, table string, where string, params []interface{}, expectedCount int) {
-	query := "SELECT COUNT(*) FROM " + table + " WHERE " + where
-	rows, err := db.Query(query, params...)
+func DbTestInit() (*sql.DB, *DbMain, *DbTestUtil) {
+	db, err := GetDb("root", "FORGIVEFeb@2018", "(127.0.0.1:3306)", "news_feed_test")
 	if err != nil {
 		panic(err)
 	}
-	defer rows.Close()
 
-	if rows.Next() {
-		var count int
-		rows.Scan(&count)
-		if !(count == expectedCount) {
-			panic("Assertion failed. Expected count: " + string(expectedCount) + ", Actual count: " + string(count))
-		}
-	}
+	dbMain := &DbMain{}
+	dbUtil := &DbTestUtil{}
+	dbMain.Init(db)
+	dbUtil.Init(db)
+
+	return db, dbMain, dbUtil
 }
 
 func TestFlags(t *testing.T) {
-	dbMain, err := GetTestDb()
-	if err != nil {
-		panic(err)
-	}
+	db, dbMain, dbUtil := DbTestInit()
+	defer db.Close()
 
-	clearTables(dbMain.db, "news_api_flags")
+	dbUtil.ClearTables("news_api_flags")
 
 	t.Run("get non-existent flag", func(t *testing.T) {
-		defer clearTables(dbMain.db, "news_api_flags")
+		defer dbUtil.ClearTables("news_api_flags")
 		flag, err := dbMain.GetFlag("test", "int")
 
 		if !(err == nil && flag == nil) {
@@ -82,7 +52,7 @@ func TestFlags(t *testing.T) {
 
 		for _, test := range tests {
 			t.Run(test.name, func(t *testing.T) {
-				defer clearTables(dbMain.db, "news_api_flags")
+				defer dbUtil.ClearTables("news_api_flags")
 
 				err := dbMain.SetFlag(test.key, test.value, test.typeTo)
 				if !(err == nil) {
@@ -113,7 +83,7 @@ func TestFlags(t *testing.T) {
 
 		for _, test := range tests {
 			t.Run(test.name, func(t *testing.T) {
-				defer clearTables(dbMain.db, "news_api_flags")
+				defer dbUtil.ClearTables("news_api_flags")
 
 				dbMain.SetFlag(test.key, test.value, test.typeTo)
 
@@ -127,10 +97,44 @@ func TestFlags(t *testing.T) {
 					t.FailNow()
 				}
 
-				assertRowCount(dbMain.db, "news_api_flags", "flag_key = ?", []interface{}{test.key}, 1)
+				dbUtil.AssertRowCount("news_api_flags", "flag_key = ?", []interface{}{test.key}, 1)
 			})
 		}
 	})
+
+	// TODO: type mismatch in flags. conversion errors. setting in different type, fetching different type
 }
 
-// TODO: type mismatch in flags. conversion errors. setting in different type, fetching different type
+func areSourcesEqual(source1 *Source, source2 *Source) bool {
+	return source1.Name == source2.Name && source1.SourceId == source2.SourceId
+}
+
+func TestSources(t *testing.T) {
+	db, dbMain, dbUtil := DbTestInit()
+	defer db.Close()
+
+	dbUtil.ClearTables("sources")
+
+	t.Run("save and get sources", func(t *testing.T) {
+		sources := make([]*Source, 2)
+		sources[0] = &Source{SourceId: "test", Name: "testSource"}
+		sources[1] = &Source{SourceId: "test2", Name: "testSource2"}
+
+		numSaved, err := dbMain.SaveSources(sources)
+		if !(err == nil && numSaved == 2) {
+			glog.Errorln(err)
+			t.FailNow()
+		}
+
+		dbUtil.AssertRowCount("sources", "", []interface{}{}, 2)
+
+		gotSources, err := dbMain.GetSources()
+		if !(err == nil &&
+			len(gotSources) == 2 &&
+			areSourcesEqual(gotSources[0], sources[0]) &&
+			areSourcesEqual(gotSources[1], sources[1])) {
+
+			t.FailNow()
+		}
+	})
+}
