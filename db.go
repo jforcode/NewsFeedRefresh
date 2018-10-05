@@ -139,7 +139,12 @@ func (main *DbMain) SaveSources(sources []*Source) (int64, error) {
 	}
 
 	query = query + strings.Join(parameterHolders, ",")
-	return main.batchInsert(query, parameters)
+	return main.prepareAndExec(query, parameters...)
+}
+
+func (main *DbMain) ClearSources(apiSourceName string) (int64, error) {
+	query := "DELETE FROM sources WHERE api_source_name = ?"
+	return main.prepareAndExec(query, apiSourceName)
 }
 
 func (main *DbMain) GetArticles() ([]*Article, error) {
@@ -174,11 +179,11 @@ func (main *DbMain) SaveArticles(articles []*Article) (int64, error) {
 	}
 
 	query = query + strings.Join(parameterHolders, ",")
-	return main.batchInsert(query, parameters)
+	return main.prepareAndExec(query, parameters...)
 }
 
-func (main *DbMain) batchInsert(query string, parameters []interface{}) (int64, error) {
-	prefix := "main.DbMain.batchInsert"
+func (main *DbMain) prepareAndExec(query string, parameters ...interface{}) (int64, error) {
+	prefix := "main.DbMain.prepareAndExec"
 	stmt, err := main.db.Prepare(query)
 	if err != nil {
 		return -1, errors.New(prefix + " (Prepare): " + err.Error())

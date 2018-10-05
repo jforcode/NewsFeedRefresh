@@ -80,6 +80,13 @@ func (refr *Refresher) CheckSources() error {
 
 	if (flagSrcRefreshed == nil || flagSrcRefreshed.UpdatedAt.Before(monthStart)) && remainingRequests > 0 {
 		glog.Infoln("refreshing sources. ", flagSrcRefreshed)
+
+		// TODO:  news_api string should be centralized in config or constants
+		_, err := refr.dbMain.ClearSources("news_api")
+		if err != nil {
+			return errors.New(prefix + " (clear sources): " + err.Error())
+		}
+
 		sources, err := refr.api.FetchSources()
 		if err != nil {
 			return errors.New(prefix + " (fetch sources): " + err.Error())
