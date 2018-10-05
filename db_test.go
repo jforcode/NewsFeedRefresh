@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"testing"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/golang/glog"
@@ -134,6 +135,44 @@ func TestSources(t *testing.T) {
 			areSourcesEqual(gotSources[0], sources[0]) &&
 			areSourcesEqual(gotSources[1], sources[1])) {
 
+			t.FailNow()
+		}
+	})
+}
+
+func areArticlesEqual(article1 *Article, article2 *Article) bool {
+	return article1.SourceId == article2.SourceId &&
+		article1.SourceName == article2.SourceName &&
+		article1.Author == article2.Author &&
+		article1.Title == article2.Title
+}
+
+func TestArticles(t *testing.T) {
+	db, dbMain, dbUtil := DbTestInit()
+	defer db.Close()
+
+	dbUtil.ClearTables("articles")
+
+	t.Run("save and get articles", func(t *testing.T) {
+		articles := make([]*Article, 2)
+		articles[0] = &Article{SourceId: "test", SourceName: "testSource", Author: "", Title: "Test artcile 1", PublishedAt: time.Now().UTC()}
+		articles[1] = &Article{SourceId: "test", SourceName: "testSource", Author: "Jeevan", Title: "Test article 2", PublishedAt: time.Now().UTC()}
+
+		numSaved, err := dbMain.SaveArticles(articles)
+		if !(err == nil && numSaved == 2) {
+			glog.Errorln(err)
+			t.FailNow()
+		}
+
+		dbUtil.AssertRowCount("articles", "", []interface{}{}, 2)
+
+		gotArticles, err := dbMain.GetArticles()
+		if !(err == nil &&
+			len(gotArticles) == 2 &&
+			areArticlesEqual(gotArticles[0], articles[0]) &&
+			areArticlesEqual(gotArticles[1], articles[1])) {
+
+			glog.Errorf("\nDb 0: %+v\nAr 0: %+v\nDb 1: %+v\nAr 1: %+v", gotArticles[0], articles[0], gotArticles[1], articles[1])
 			t.FailNow()
 		}
 	})

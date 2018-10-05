@@ -152,9 +152,12 @@ func (main *DbMain) GetArticles() ([]*Article, error) {
 
 	articles := make([]*Article, 0)
 	for rows.Next() {
-		article := &Article{}
-		rows.Scan(&article.Id_, &article.ApiSourceName, &article.SourceId, &article.SourceName, &article.Author, &article.Title, &article.Description, &article.Url, &article.UrlToImage, &article.PublishedAt, &article.CreatedAt, &article.UpdatedAt, &article.Status)
-		articles = append(articles, article)
+		var article Article
+		err := rows.Scan(&article.Id_, &article.ApiSourceName, &article.SourceId, &article.SourceName, &article.Author, &article.Title, &article.Description, &article.Url, &article.UrlToImage, &article.PublishedAt, &article.CreatedAt, &article.UpdatedAt, &article.Status)
+		if err != nil {
+			glog.Errorln(err)
+		}
+		articles = append(articles, &article)
 	}
 
 	return articles, nil
