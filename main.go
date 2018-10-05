@@ -4,7 +4,6 @@ import (
 	"database/sql"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/golang/glog"
 	"github.com/magiconair/properties"
 )
 
@@ -27,9 +26,13 @@ func main() {
 
 	util := &Util{}
 
-	refresher := &Refresher{api, dbMain, util}
+	refresher := &Refresher{}
 
-	glog.Infoln("Starting Refresh")
+	err = refresher.Init(api, dbMain, util)
+	if err != nil {
+		panic(err)
+	}
+
 	err = refresher.StartRefresh()
 	if err != nil {
 		panic(err)
