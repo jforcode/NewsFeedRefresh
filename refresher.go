@@ -84,7 +84,11 @@ func (refr *Refresher) CheckSources() error {
 		if err != nil {
 			return errors.New(prefix + " (fetch sources): " + err.Error())
 		}
-		refr.dbMain.SetFlag("remaining_requests", strconv.Itoa(remainingRequests-1), "int")
+
+		err = refr.SetRemainingRequests(remainingRequests - 1)
+		if err != nil {
+			return errors.New(prefix + " (set remaining requests): " + err.Error())
+		}
 
 		_, err = refr.dbMain.SaveSources(sources)
 		if err != nil {
@@ -112,7 +116,8 @@ func (refr *Refresher) CheckRemainingRequests() error {
 
 	if flagNumRequests == nil || flagNumRequests.UpdatedAt.Before(dayStart) {
 		glog.Infoln("resetting remaining requests for today.", flagNumRequests)
-		err := refr.dbMain.SetFlag("remaining_requests", "1000", "int")
+
+		err := refr.SetRemainingRequests(1000)
 		if err != nil {
 			return errors.New(prefix + " (set remaining requests): " + err.Error())
 		}
@@ -164,7 +169,11 @@ func (refr *Refresher) FetchArticles(sources []*Source, remainingRequests int, c
 		}
 
 		pageNum++
-		refr.dbMain.SetFlag("remaining_requests", strconv.Itoa(remainingRequests), "int")
+		err := refr.SetRemainingRequests(remainingRequests)
+		if err != nil {
+			fmt.Println(prefix + " (set remaining requests) " + err.Error())
+		}
+
 		time.Sleep(1 * time.Minute)
 	}
 }
@@ -181,4 +190,8 @@ func (refr *Refresher) GetRemainingRequests() (int, error) {
 
 	remainingRequests := flagNumRequests.Value.(int)
 	return remainingRequests, nil
+}
+
+func (refr *Refresher) SetRemainingRequests(remainingRequests int) error {
+	return refr.dbMain.SetFlag("remaining_requests", strconv.Itoa(remainingRequests), "int")
 }
