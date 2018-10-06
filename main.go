@@ -4,6 +4,7 @@ import (
 	"database/sql"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/jforcode/NewsApi"
 	"github.com/magiconair/properties"
 )
 
@@ -18,17 +19,15 @@ func main() {
 		panic(err)
 	}
 
-	api := &NewsApi{}
-	api.Init(apiUrl, apiKey, "news_api")
+	api := &newsApi.NewsApi{}
+	api.Init(apiUrl, apiKey)
 
 	dbMain := &DbMain{}
 	dbMain.Init(db)
 
-	util := &Util{}
-
 	refresher := &Refresher{}
 
-	err = refresher.Init(api, dbMain, util)
+	err = refresher.Init(api, dbMain)
 	if err != nil {
 		panic(err)
 	}

@@ -7,31 +7,33 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/jforcode/NewsApi"
 )
 
-// TODO: make all parameters as config.. like number of requests in a day, tiem for refreshing sources, batchsize etc.
-
 type Refresher struct {
-	api    *NewsApi
-	dbMain *DbMain
-	util   *Util
+	api                    *newsApi.NewsApi
+	dailyRefresher         *newsApi.Refresher
+	dbMain                 *DbMain
+	sourceName             string
+	defaultNumTransactions int
 }
 
-func (refr *Refresher) Init(api *NewsApi, dbMain *DbMain, util *Util) error {
+func (refr *Refresher) Init(api *newsApi.NewsApi, dbMain *DbMain) error {
 	prefix := "main.Refresher.Init"
 
 	refr.api = api
 	refr.dbMain = dbMain
-	refr.util = util
+	refr.sourceName = "news_api"
+	refr.defaultNumTransactions = 1000
 
 	glog.Infoln("Checking wether to update remaining requests")
-	err := refr.CheckRemainingRequests()
+	err := refr.checkRemainingRequests()
 	if err != nil {
 		return errors.New(prefix + " (check requests): " + err.Error())
 	}
 
 	glog.Infoln("Checking wether to refresh sources")
-	err = refr.CheckSources()
+	err = refr.checkSources()
 	if err != nil {
 		return errors.New(prefix + " (check sources): " + err.Error())
 	}
@@ -42,7 +44,7 @@ func (refr *Refresher) Init(api *NewsApi, dbMain *DbMain, util *Util) error {
 func (refr *Refresher) StartRefresh() error {
 	prefix := "main.Refresher.StartRefresh"
 
-	remainingRequests, err := refr.GetRemainingRequests()
+	remainingRequests, err := refr.getRemainingRequests()
 	if err != nil {
 		return errors.New(prefix + " (get remaining requests): " + err.Error())
 	}
@@ -52,19 +54,47 @@ func (refr *Refresher) StartRefresh() error {
 		return errors.New(prefix + " (get sources): " + err.Error())
 	}
 
-	chArticles := make(chan []*Article)
+	sourceIds := make([]string, len(sources))
+	for index, source := range sources {
+		sourceIds[index] = source.SourceId
+	}
+
+	chArticles := make(chan []*newsApi.ApiArticle)
+	chNumRequestsUpdated := make(chan int)
+	chError := make(chan error)
+
+	refresherConfig := &newsApi.RefresherConfig{
+		RemainingRequests: remainingRequests,
+		SourceIds:         sourceIds,
+		PageSize:          100,
+	}
+
+	go refr.dailyRefresher.DailyRefresh(refresherConfig, chArticles, chNumRequestsUpdated, chError)
+	select {
+	case apiArticles := <-chArticles:
+		articles := make([]*Article, len(apiArticles))
+		for index, apiArticle := range apiArticles {
+			articles[index] = refr.convertArticle(apiArticle)
+		}
+
+		go refr.dbMain.SaveArticles(articles)
+
+	case updatedRequests := <-chNumRequestsUpdated:
+		remainingRequests -= updatedRequests
+		go refr.setRemainingRequests(remainingRequests)
+
+	case err := <-chError:
+		fmt.Println(err)
+
+	}
 
 	glog.Infoln("Fetching articles")
-	go refr.FetchArticles(sources, remainingRequests, chArticles)
-	for articles := range chArticles {
-		go refr.dbMain.SaveArticles(articles)
-	}
 
 	return nil
 }
 
-func (refr *Refresher) CheckSources() error {
-	prefix := "main.Refresher.CheckSources"
+func (refr *Refresher) checkSources() error {
+	prefix := "main.Refresher.checkSources"
 	today := time.Now().UTC()
 	monthStart := time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, today.Location())
 
@@ -73,28 +103,32 @@ func (refr *Refresher) CheckSources() error {
 		return errors.New(prefix + " (get flag sources): " + err.Error())
 	}
 
-	remainingRequests, err := refr.GetRemainingRequests()
+	remainingRequests, err := refr.getRemainingRequests()
 	if err != nil {
-		return errors.New(prefix + " (get remaining request): " + err.Error())
+		return errors.New(prefix + " (get remaining requests): " + err.Error())
 	}
 
 	if (flagSrcRefreshed == nil || flagSrcRefreshed.UpdatedAt.Before(monthStart)) && remainingRequests > 0 {
 		glog.Infoln("refreshing sources. ", flagSrcRefreshed)
 
-		// TODO:  news_api string should be centralized in config or constants
-		_, err := refr.dbMain.ClearSources("news_api")
+		_, err := refr.dbMain.ClearSources(refr.sourceName)
 		if err != nil {
 			return errors.New(prefix + " (clear sources): " + err.Error())
 		}
 
-		sources, err := refr.api.FetchSources()
+		apiSourcesResponse, err := refr.api.FetchSources()
 		if err != nil {
 			return errors.New(prefix + " (fetch sources): " + err.Error())
 		}
 
-		err = refr.SetRemainingRequests(remainingRequests - 1)
+		err = refr.setRemainingRequests(remainingRequests - 1)
 		if err != nil {
 			return errors.New(prefix + " (set remaining requests): " + err.Error())
+		}
+
+		sources := make([]*Source, len(apiSourcesResponse.Sources))
+		for index, apiSource := range apiSourcesResponse.Sources {
+			sources[index] = refr.convertSource(apiSource)
 		}
 
 		_, err = refr.dbMain.SaveSources(sources)
@@ -111,8 +145,8 @@ func (refr *Refresher) CheckSources() error {
 	return nil
 }
 
-func (refr *Refresher) CheckRemainingRequests() error {
-	prefix := "main.Refresher.CheckRemainingRequests"
+func (refr *Refresher) checkRemainingRequests() error {
+	prefix := "main.Refresher.checkRemainingRequests"
 	today := time.Now().UTC()
 	dayStart := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, today.Location())
 
@@ -124,7 +158,7 @@ func (refr *Refresher) CheckRemainingRequests() error {
 	if flagNumRequests == nil || flagNumRequests.UpdatedAt.Before(dayStart) {
 		glog.Infoln("resetting remaining requests for today.", flagNumRequests)
 
-		err := refr.SetRemainingRequests(1000)
+		err := refr.setRemainingRequests(refr.defaultNumTransactions)
 		if err != nil {
 			return errors.New(prefix + " (set remaining requests): " + err.Error())
 		}
@@ -133,60 +167,8 @@ func (refr *Refresher) CheckRemainingRequests() error {
 	return nil
 }
 
-// TODO: should use struct for variables, and in a config, so that it can be changed easily
-// TODO: channel for errors
-func (refr *Refresher) FetchArticles(sources []*Source, remainingRequests int, chArticles chan []*Article) {
-	prefix := "main.Refresher.FetchArticles"
-	batchSize := 20
-	lenSources := len(sources)
-	lenIds := refr.util.MinInt(batchSize, lenSources)
-	sourceIds := make([]string, lenIds)
-	pageNum := 1
-	pageSize := 100
-	today := time.Now().UTC()
-	lastMoment := time.Date(today.Year(), today.Month(), today.Day()+1, 0, -30, 0, 0, today.Location())
-	// without this, sourceIds will be out of order, which is OK, no impact whatsoever.
-	// this is just so that code works as we expect.
-	firstIndForBatch := 0
-
-	for {
-		for index, source := range sources {
-			sourceIds[index-firstIndForBatch] = source.Name
-
-			if index-firstIndForBatch+1 == lenIds {
-				if time.Now().After(lastMoment) || remainingRequests <= 0 {
-					glog.Infoln("Exiting ", time.Now(), lastMoment, remainingRequests)
-					close(chArticles)
-					return
-				}
-
-				glog.Infoln("Making a request for articles. index: ", index, ", remaining requests: ", remainingRequests, ", pageNum: ", pageNum, ", sourceIds: ", sourceIds)
-				remainingRequests--
-				articles, err := refr.api.FetchArticles(sourceIds, pageNum, pageSize)
-				if err != nil {
-					fmt.Println("Error: " + prefix + " (fetch articles): " + err.Error())
-				} else {
-					chArticles <- articles
-				}
-
-				lenIds = refr.util.MinInt(batchSize, lenSources-index-1)
-				sourceIds = make([]string, lenIds)
-				firstIndForBatch = index + 1
-			}
-		}
-
-		pageNum++
-		err := refr.SetRemainingRequests(remainingRequests)
-		if err != nil {
-			fmt.Println(prefix + " (set remaining requests) " + err.Error())
-		}
-
-		time.Sleep(1 * time.Minute)
-	}
-}
-
-func (refr *Refresher) GetRemainingRequests() (int, error) {
-	prefix := "main.Refresher.GetRemainingRequests"
+func (refr *Refresher) getRemainingRequests() (int, error) {
+	prefix := "main.Refresher.getRemainingRequests"
 	flagNumRequests, err := refr.dbMain.GetFlag("remaining_requests", "int")
 	if err != nil {
 		return -1, errors.New(prefix + " (get flag) " + err.Error())
@@ -199,6 +181,39 @@ func (refr *Refresher) GetRemainingRequests() (int, error) {
 	return remainingRequests, nil
 }
 
-func (refr *Refresher) SetRemainingRequests(remainingRequests int) error {
+func (refr *Refresher) setRemainingRequests(remainingRequests int) error {
 	return refr.dbMain.SetFlag("remaining_requests", strconv.Itoa(remainingRequests), "int")
+}
+
+// TODO: json anyway to copy from one structure to another only some values
+// basicaly any way to reduce the code here.
+func (refr *Refresher) convertSource(apiSource *newsApi.ApiSource) *Source {
+	source := Source{
+		ApiSourceName: refr.sourceName,
+		SourceId:      apiSource.Id,
+		Name:          apiSource.Name,
+		Description:   apiSource.Description,
+		Url:           apiSource.URL,
+		Category:      apiSource.Category,
+		Language:      apiSource.Language,
+		Country:       apiSource.Country,
+	}
+
+	return &source
+}
+
+func (refr *Refresher) convertArticle(apiArticle *newsApi.ApiArticle) *Article {
+	article := Article{
+		ApiSourceName: refr.sourceName,
+		Author:        apiArticle.Author,
+		Title:         apiArticle.Title,
+		Description:   apiArticle.Description,
+		Url:           apiArticle.URL,
+		UrlToImage:    apiArticle.URLToImage,
+		PublishedAt:   apiArticle.PublishedAt,
+		SourceId:      apiArticle.Source.Id,
+		SourceName:    apiArticle.Source.Name,
+	}
+
+	return &article
 }
