@@ -7,30 +7,32 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/golang/glog"
+	"github.com/jforcode/DbUtil"
 )
 
-func DbTestInit() (*sql.DB, *DbMain, *DbTestUtil) {
-	db, err := GetDb("root", "FORGIVEFeb@2018", "(127.0.0.1:3306)", "news_feed_test")
+func DbTestInit() (*sql.DB, *DbMain) {
+	params := make(map[string]string)
+	params["parseTime"] = "true"
+
+	db, err := dbUtil.GetDb("root", "FORGIVEFeb@2018", "(127.0.0.1:3306)", "news_feed_test", params)
 	if err != nil {
 		panic(err)
 	}
 
 	dbMain := &DbMain{}
-	dbUtil := &DbTestUtil{}
 	dbMain.Init(db)
-	dbUtil.Init(db)
 
-	return db, dbMain, dbUtil
+	return db, dbMain
 }
 
 func TestFlags(t *testing.T) {
-	db, dbMain, dbUtil := DbTestInit()
+	db, dbMain := DbTestInit()
 	defer db.Close()
 
-	dbUtil.ClearTables("news_api_flags")
+	dbUtil.ClearTables(db, "news_api_flags")
 
 	t.Run("get non-existent flag", func(t *testing.T) {
-		defer dbUtil.ClearTables("news_api_flags")
+		defer dbUtil.ClearTables(db, "news_api_flags")
 		flag, err := dbMain.GetFlag("test", "int")
 
 		if !(err == nil && flag == nil) {
@@ -53,7 +55,7 @@ func TestFlags(t *testing.T) {
 
 		for _, test := range tests {
 			t.Run(test.name, func(t *testing.T) {
-				defer dbUtil.ClearTables("news_api_flags")
+				defer dbUtil.ClearTables(db, "news_api_flags")
 
 				err := dbMain.SetFlag(test.key, test.value, test.typeTo)
 				if !(err == nil) {
@@ -84,7 +86,7 @@ func TestFlags(t *testing.T) {
 
 		for _, test := range tests {
 			t.Run(test.name, func(t *testing.T) {
-				defer dbUtil.ClearTables("news_api_flags")
+				defer dbUtil.ClearTables(db, "news_api_flags")
 
 				dbMain.SetFlag(test.key, test.value, test.typeTo)
 
@@ -98,7 +100,7 @@ func TestFlags(t *testing.T) {
 					t.FailNow()
 				}
 
-				dbUtil.AssertRowCount("news_api_flags", "flag_key = ?", []interface{}{test.key}, 1)
+				dbUtil.GetRowCount(db, "news_api_flags", "flag_key = ?", []interface{}{test.key})
 			})
 		}
 	})
@@ -111,10 +113,10 @@ func areSourcesEqual(source1 *Source, source2 *Source) bool {
 }
 
 func TestSources(t *testing.T) {
-	db, dbMain, dbUtil := DbTestInit()
+	db, dbMain := DbTestInit()
 	defer db.Close()
 
-	dbUtil.ClearTables("sources")
+	dbUtil.ClearTables(db, "sources")
 
 	t.Run("save and get sources", func(t *testing.T) {
 		sources := make([]*Source, 2)
@@ -127,7 +129,10 @@ func TestSources(t *testing.T) {
 			t.FailNow()
 		}
 
-		dbUtil.AssertRowCount("sources", "", []interface{}{}, 2)
+		rowCount, err := dbUtil.GetRowCount(db, "sources", "", []interface{}{})
+		if err != nil || rowCount != 2 {
+			t.FailNow()
+		}
 
 		gotSources, err := dbMain.GetSources()
 		if !(err == nil &&
@@ -148,10 +153,13 @@ func areArticlesEqual(article1 *Article, article2 *Article) bool {
 }
 
 func TestArticles(t *testing.T) {
-	db, dbMain, dbUtil := DbTestInit()
+	db, dbMain := DbTestInit()
 	defer db.Close()
 
-	dbUtil.ClearTables("articles")
+	err := dbUtil.ClearTables(db, "articles")
+	if err != nil {
+		t.FailNow()
+	}
 
 	t.Run("save and get articles", func(t *testing.T) {
 		articles := make([]*Article, 2)
@@ -164,7 +172,10 @@ func TestArticles(t *testing.T) {
 			t.FailNow()
 		}
 
-		dbUtil.AssertRowCount("articles", "", []interface{}{}, 2)
+		rowCount, err := dbUtil.GetRowCount(db, "articles", "", []interface{}{})
+		if !(err == nil && rowCount == 2) {
+			t.FailNow()
+		}
 
 		gotArticles, err := dbMain.GetArticles()
 		if !(err == nil &&

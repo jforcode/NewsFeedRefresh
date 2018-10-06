@@ -1,20 +1,25 @@
 package main
 
 import (
-	"database/sql"
-
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/jforcode/DbUtil"
 	"github.com/jforcode/NewsApi"
 	"github.com/magiconair/properties"
 )
 
 func main() {
 	p := properties.MustLoadFile("app.properties", properties.UTF8)
-	dataSource := p.GetString("datasource", "")
 	apiKey := p.GetString("apiKey", "")
 	apiUrl := p.GetString("apiUrl", "")
 
-	db, err := sql.Open("mysql", dataSource)
+	user := p.GetString("user", "")
+	password := p.GetString("password", "")
+	host := p.GetString("host", "")
+	database := p.GetString("db", "")
+	params := make(map[string]string)
+	params["parseTime"] = "true"
+
+	db, err := dbUtil.GetDb(user, password, host, database, params)
 	if err != nil {
 		panic(err)
 	}
@@ -26,7 +31,6 @@ func main() {
 	dbMain.Init(db)
 
 	refresher := &Refresher{}
-
 	err = refresher.Init(api, dbMain)
 	if err != nil {
 		panic(err)
@@ -36,24 +40,4 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-}
-
-func GetDb(user, password, host, database string) (*sql.DB, error) {
-	datasource := user +
-		":" + password +
-		"@" + host +
-		"/" + database +
-		"?" + "parseTime=true"
-
-	db, err := sql.Open("mysql", datasource)
-	if err != nil {
-		return nil, err
-	}
-
-	err = db.Ping()
-	if err != nil {
-		return nil, err
-	}
-
-	return db, nil
 }
