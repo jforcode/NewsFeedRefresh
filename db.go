@@ -13,12 +13,20 @@ type DbMain struct {
 	db *sql.DB
 }
 
+type FlagType string
+
+const (
+	flagTypeString FlagType = "string"
+	flagTypeInt    FlagType = "int"
+	flagTypeBool   FlagType = "boolean"
+)
+
 func (main *DbMain) Init(db *sql.DB) {
 	main.db = db
 }
 
 // TODO: make typeTo as a proper type with constants
-func (main *DbMain) GetFlag(key, typeTo string) (*Flag, error) {
+func (main *DbMain) GetFlag(key string, typeTo FlagType) (*Flag, error) {
 	prefix := "main.DbMain.GetFlag"
 	query := "SELECT _id, flag_key, flag_value, created_at, updated_at, status FROM news_api_flags WHERE flag_key = ?"
 
@@ -34,16 +42,16 @@ func (main *DbMain) GetFlag(key, typeTo string) (*Flag, error) {
 		rows.Scan(&flag.Id_, &flag.Key, &value, &flag.CreatedAt, &flag.UpdatedAt, &flag.Status)
 
 		switch typeTo {
-		case "string":
+		case flagTypeString:
 			flag.Value = value
 
-		case "int":
+		case flagTypeInt:
 			flag.Value, err = strconv.Atoi(value)
 			if err != nil {
 				return nil, errors.New(prefix + "Invalid type int: " + err.Error())
 			}
 
-		case "bool":
+		case flagTypeBool:
 			flag.Value, err = strconv.ParseBool(value)
 			if err != nil {
 				return nil, errors.New(prefix + "Invalid type bool: " + err.Error())
@@ -56,7 +64,7 @@ func (main *DbMain) GetFlag(key, typeTo string) (*Flag, error) {
 	return nil, nil
 }
 
-func (main *DbMain) SetFlag(key, value, typeTo string) error {
+func (main *DbMain) SetFlag(key, value string, typeTo FlagType) error {
 	prefix := "main.DbMain.SetFlag"
 	flag, err := main.GetFlag(key, typeTo)
 	if err != nil {

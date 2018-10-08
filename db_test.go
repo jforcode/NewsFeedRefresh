@@ -46,11 +46,11 @@ func TestFlags(t *testing.T) {
 			key      string
 			value    string
 			expected interface{}
-			typeTo   string
+			typeTo   FlagType
 		}{
-			{"string", "test", "asdf", "asdf", "string"},
-			{"int", "test", "1234", 1234, "int"},
-			{"boolean", "test", "TRUE", true, "bool"},
+			{"string", "test", "asdf", "asdf", flagTypeString},
+			{"int", "test", "1234", 1234, flagTypeInt},
+			{"boolean", "test", "TRUE", true, flagTypeBool},
 		}
 
 		for _, test := range tests {
@@ -77,11 +77,11 @@ func TestFlags(t *testing.T) {
 			value        string
 			updatedValue string
 			expected     interface{}
-			typeTo       string
+			typeTo       FlagType
 		}{
-			{"string", "test", "asdf", "def", "def", "string"},
-			{"int", "test", "1234", "5678", 5678, "int"},
-			{"boolean", "test", "TRUE", "FALSE", false, "bool"},
+			{"string", "test", "asdf", "def", "def", flagTypeString},
+			{"int", "test", "1234", "5678", 5678, flagTypeInt},
+			{"boolean", "test", "TRUE", "FALSE", false, flagTypeBool},
 		}
 
 		for _, test := range tests {
@@ -92,11 +92,13 @@ func TestFlags(t *testing.T) {
 
 				err := dbMain.SetFlag(test.key, test.updatedValue, test.typeTo)
 				if !(err == nil) {
+					glog.Errorln(err)
 					t.FailNow()
 				}
 
 				flag, err := dbMain.GetFlag(test.key, test.typeTo)
 				if !(err == nil && flag != nil && test.expected == flag.Value) {
+					glog.Errorln(err, flag, test.expected, flag.Value)
 					t.FailNow()
 				}
 
