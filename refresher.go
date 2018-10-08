@@ -2,12 +2,11 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/jforcode/NewsApi"
+	"github.com/jforcode/NewsApiSDK"
 )
 
 type Refresher struct {
@@ -77,18 +76,22 @@ func (refr *Refresher) StartRefresh() error {
 			articles[index] = refr.convertArticle(apiArticle)
 		}
 
-		go refr.dbMain.SaveArticles(articles)
+		_, err := refr.dbMain.SaveArticles(articles)
+		if err != nil {
+			glog.Errorln(prefix+" (save articles): "+err.Error(), articles)
+		}
 
 	case updatedRequests := <-chNumRequestsUpdated:
 		remainingRequests -= updatedRequests
-		go refr.setRemainingRequests(remainingRequests)
+		err := refr.setRemainingRequests(remainingRequests)
+		if err != nil {
+			glog.Errorln(prefix+" (set remaining requests): "+err.Error(), remainingRequests)
+		}
 
 	case err := <-chError:
-		fmt.Println(err)
+		glog.Errorln(err)
 
 	}
-
-	glog.Infoln("Fetching articles")
 
 	return nil
 }

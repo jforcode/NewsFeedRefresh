@@ -3,7 +3,7 @@ package main
 import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jforcode/DbUtil"
-	"github.com/jforcode/NewsApi"
+	"github.com/jforcode/NewsApiSDK"
 	"github.com/magiconair/properties"
 )
 
