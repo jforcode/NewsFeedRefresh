@@ -4,17 +4,17 @@ import (
 	"testing"
 
 	"github.com/golang/glog"
-	"github.com/jforcode/DbUtil"
+	"github.com/jforcode/Util"
 )
 
 func TestFlags(t *testing.T) {
 	db, dbMain := dbTestInit()
 	defer db.Close()
 
-	dbUtil.ClearTables(db, "news_api_flags")
+	util.Db.ClearTables(db, "news_api_flags")
 
 	t.Run("get non-existent flag", func(t *testing.T) {
-		defer dbUtil.ClearTables(db, "news_api_flags")
+		defer util.Db.ClearTables(db, "news_api_flags")
 		flag, err := dbMain.GetFlag("test", "int")
 
 		if !(err == nil && flag == nil) {
@@ -37,7 +37,7 @@ func TestFlags(t *testing.T) {
 
 		for _, test := range tests {
 			t.Run(test.name, func(t *testing.T) {
-				defer dbUtil.ClearTables(db, "news_api_flags")
+				defer util.Db.ClearTables(db, "news_api_flags")
 
 				err := dbMain.SetFlag(test.key, test.value, test.typeTo)
 				if !(err == nil) {
@@ -68,7 +68,7 @@ func TestFlags(t *testing.T) {
 
 		for _, test := range tests {
 			t.Run(test.name, func(t *testing.T) {
-				defer dbUtil.ClearTables(db, "news_api_flags")
+				defer util.Db.ClearTables(db, "news_api_flags")
 
 				dbMain.SetFlag(test.key, test.value, test.typeTo)
 
@@ -84,7 +84,7 @@ func TestFlags(t *testing.T) {
 					t.FailNow()
 				}
 
-				dbUtil.GetRowCount(db, "news_api_flags", "flag_key = ?", []interface{}{test.key})
+				util.Db.GetRowCount(db, "news_api_flags", "flag_key = ?", []interface{}{test.key})
 			})
 		}
 	})

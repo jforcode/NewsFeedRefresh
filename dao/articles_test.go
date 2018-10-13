@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/golang/glog"
-	"github.com/jforcode/DbUtil"
+	"github.com/jforcode/Util"
 )
 
 func areSourcesEqual(source1 *Source, source2 *Source) bool {
@@ -15,7 +15,7 @@ func TestSources(t *testing.T) {
 	db, dbMain := dbTestInit()
 	defer db.Close()
 
-	dbUtil.ClearTables(db, "sources")
+	util.Db.ClearTables(db, "sources")
 
 	t.Run("save and get sources", func(t *testing.T) {
 		sources := make([]*Source, 2)
@@ -28,7 +28,7 @@ func TestSources(t *testing.T) {
 			t.FailNow()
 		}
 
-		rowCount, err := dbUtil.GetRowCount(db, "sources", "", []interface{}{})
+		rowCount, err := util.Db.GetRowCount(db, "sources", "", []interface{}{})
 		if err != nil || rowCount != 2 {
 			t.FailNow()
 		}

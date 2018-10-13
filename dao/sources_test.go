@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/jforcode/DbUtil"
+	"github.com/jforcode/Util"
 )
 
 func areArticlesEqual(article1 *Article, article2 *Article) bool {
@@ -19,7 +19,7 @@ func TestArticles(t *testing.T) {
 	db, dbMain := dbTestInit()
 	defer db.Close()
 
-	err := dbUtil.ClearTables(db, "articles")
+	err := util.Db.ClearTables(db, "articles")
 	if err != nil {
 		t.FailNow()
 	}
@@ -35,7 +35,7 @@ func TestArticles(t *testing.T) {
 			t.FailNow()
 		}
 
-		rowCount, err := dbUtil.GetRowCount(db, "articles", "", []interface{}{})
+		rowCount, err := util.Db.GetRowCount(db, "articles", "", []interface{}{})
 		if !(err == nil && rowCount == 2) {
 			t.FailNow()
 		}

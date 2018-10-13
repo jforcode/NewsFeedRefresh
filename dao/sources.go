@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/golang/glog"
+	"github.com/jforcode/Util"
 )
 
 type Source struct {
@@ -53,10 +54,10 @@ func (main *Dao) SaveSources(sources []*Source) (int64, error) {
 	}
 
 	query = query + strings.Join(parameterHolders, ",")
-	return main.prepareAndExec(query, parameters...)
+	return util.Db.PrepareAndExec(main.db, query, parameters...)
 }
 
 func (main *Dao) ClearSources(apiSourceName string) (int64, error) {
 	query := "DELETE FROM sources WHERE api_source_name = ?"
-	return main.prepareAndExec(query, apiSourceName)
+	return util.Db.PrepareAndExec(main.db, query, apiSourceName)
 }

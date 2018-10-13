@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/jforcode/Util"
 )
 
 type Article struct {
@@ -54,25 +55,5 @@ func (main *Dao) SaveArticles(articles []*Article) (int64, error) {
 	}
 
 	query = query + strings.Join(parameterHolders, ",")
-	return main.prepareAndExec(query, parameters...)
-}
-
-func (main *Dao) prepareAndExec(query string, parameters ...interface{}) (int64, error) {
-	prefix := "main.Dao.prepareAndExec"
-	stmt, err := main.db.Prepare(query)
-	if err != nil {
-		return -1, errors.New(prefix + " (Prepare): " + err.Error())
-	}
-
-	res, err := stmt.Exec(parameters...)
-	if err != nil {
-		return -1, errors.New(prefix + " (Exec): " + err.Error())
-	}
-
-	numInserted, err := res.RowsAffected()
-	if err != nil {
-		return -1, errors.New(prefix + " (Rows Affected): " + err.Error())
-	}
-
-	return numInserted, nil
+	return util.Db.PrepareAndExec(main.db, query, parameters...)
 }
