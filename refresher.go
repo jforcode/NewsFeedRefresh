@@ -119,7 +119,7 @@ func (refr *Refresher) checkSources() error {
 			return errors.New(prefix + " (clear sources): " + err.Error())
 		}
 
-		apiSourcesResponse, err := refr.api.FetchSources()
+		apiSourcesResponse, err := refr.api.FetchSources(&newsApi.FetchSourcesParams{})
 		if err != nil {
 			return errors.New(prefix + " (fetch sources): " + err.Error())
 		}
