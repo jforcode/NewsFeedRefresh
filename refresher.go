@@ -112,8 +112,6 @@ func (refr *Refresher) checkSources() error {
 	}
 
 	if (flagSrcRefreshed == nil || flagSrcRefreshed.UpdatedAt.Before(monthStart)) && remainingRequests > 0 {
-		glog.Infoln("refreshing sources. ", flagSrcRefreshed)
-
 		_, err := refr.dao.ClearSources(refr.sourceName)
 		if err != nil {
 			return errors.New(prefix + " (clear sources): " + err.Error())
@@ -185,7 +183,7 @@ func (refr *Refresher) getRemainingRequests() (int, error) {
 }
 
 func (refr *Refresher) setRemainingRequests(remainingRequests int) error {
-	return refr.dao.SetFlag("remaining_requests", strconv.Itoa(remainingRequests), dao.FlagTypeBool)
+	return refr.dao.SetFlag("remaining_requests", strconv.Itoa(remainingRequests), dao.FlagTypeInt)
 }
 
 func (refr *Refresher) convertSource(apiSource *newsApi.ApiSource) *dao.Source {

@@ -3,8 +3,6 @@ package dao
 import (
 	"errors"
 	"strconv"
-
-	"github.com/golang/glog"
 )
 
 type Flag struct {
@@ -75,7 +73,6 @@ func (main *Dao) SetFlag(key, value string, typeTo FlagType) error {
 }
 
 func (main *Dao) updateFlag(key, value string) error {
-	glog.Infoln("Creating flag with key: " + key + ", value: " + value)
 	prefix := "main.Dao.createFlag"
 	query := "UPDATE news_api_flags SET flag_value = ? WHERE flag_key = ?"
 	stmt, err := main.db.Prepare(query)
@@ -93,7 +90,6 @@ func (main *Dao) updateFlag(key, value string) error {
 }
 
 func (main *Dao) createFlag(key, value string) error {
-	glog.Infoln("Updating flag with key: " + key + ", value: " + value)
 	prefix := "main.Dao.updateFlag"
 	query := "INSERT INTO news_api_flags (flag_key, flag_value) VALUES (?, ?)"
 	stmt, err := main.db.Prepare(query)
