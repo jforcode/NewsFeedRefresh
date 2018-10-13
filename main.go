@@ -2,9 +2,14 @@ package main
 
 import (
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/jforcode/DbUtil"
 	"github.com/jforcode/NewsApiSDK"
+	"github.com/jforcode/NewsFeedRefresh/dao"
 	"github.com/magiconair/properties"
+)
+
+var (
+	newsApiMain *newsApi.NewsApi
+	daoMain     *dao.Dao
 )
 
 func main() {
@@ -16,10 +21,10 @@ func main() {
 	password := p.GetString("password", "")
 	host := p.GetString("host", "")
 	database := p.GetString("db", "")
-	params := make(map[string]string)
-	params["parseTime"] = "true"
+	flags := make(map[string]string)
+	flags["parseTime"] = "true"
 
-	db, err := dbUtil.GetDb(user, password, host, database, params)
+	db, err := dbUtil.GetDb(user, password, host, database, flags)
 	if err != nil {
 		panic(err)
 	}
@@ -27,11 +32,10 @@ func main() {
 	api := &newsApi.NewsApi{}
 	api.Init(apiUrl, apiKey)
 
-	dbMain := &DbMain{}
-	dbMain.Init(db)
+	dao := dao.New(db)
 
 	refresher := &Refresher{}
-	err = refresher.Init(api, dbMain)
+	err = refresher.Init(api, dao)
 	if err != nil {
 		panic(err)
 	}
