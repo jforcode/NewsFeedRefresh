@@ -10,29 +10,27 @@ import (
 	"github.com/jforcode/NewsFeedRefresh/dao"
 )
 
+type IRefresher interface {
+	DoInitialChecks() error
+	StartRefresh() error
+}
+
 type Refresher struct {
-	api                    *newsApi.NewsApi
-	dailyRefresher         *newsApi.Refresher
-	dao                    *dao.Dao
+	api                    newsApi.INewsApi
+	dailyRefresher         newsApi.IRefresher
+	dao                    dao.IDao
 	sourceName             string
 	defaultNumTransactions int
 }
 
-func (refr *Refresher) Init(api *newsApi.NewsApi, dao *dao.Dao) error {
+func (refr *Refresher) DoInitialChecks() error {
 	prefix := "main.Refresher.Init"
 
-	refr.api = api
-	refr.dao = dao
-	refr.sourceName = "news_api"
-	refr.defaultNumTransactions = 1000
-
-	glog.Infoln("Checking wether to update remaining requests")
 	err := refr.checkRemainingRequests()
 	if err != nil {
 		return errors.New(prefix + " (check requests): " + err.Error())
 	}
 
-	glog.Infoln("Checking wether to refresh sources")
 	err = refr.checkSources()
 	if err != nil {
 		return errors.New(prefix + " (check sources): " + err.Error())
@@ -99,6 +97,7 @@ func (refr *Refresher) StartRefresh() error {
 
 func (refr *Refresher) checkSources() error {
 	prefix := "main.Refresher.checkSources"
+
 	today := time.Now().UTC()
 	monthStart := time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, today.Location())
 
@@ -173,7 +172,7 @@ func (refr *Refresher) checkRemainingRequests() error {
 
 func (refr *Refresher) getRemainingRequests() (int, error) {
 	prefix := "main.Refresher.getRemainingRequests"
-	flagNumRequests, err := refr.dao.GetFlag("remaining_requests", "int")
+	flagNumRequests, err := refr.dao.GetFlag("remaining_requests", dao.FlagTypeInt)
 	if err != nil {
 		return -1, errors.New(prefix + " (get flag) " + err.Error())
 	}
@@ -186,11 +185,11 @@ func (refr *Refresher) getRemainingRequests() (int, error) {
 }
 
 func (refr *Refresher) setRemainingRequests(remainingRequests int) error {
-	return refr.dao.SetFlag("remaining_requests", strconv.Itoa(remainingRequests), "int")
+	return refr.dao.SetFlag("remaining_requests", strconv.Itoa(remainingRequests), dao.FlagTypeBool)
 }
 
 func (refr *Refresher) convertSource(apiSource *newsApi.ApiSource) *dao.Source {
-	source := dao.Source{
+	return &dao.Source{
 		ApiSourceName: refr.sourceName,
 		SourceId:      apiSource.Id,
 		Name:          apiSource.Name,
@@ -200,12 +199,10 @@ func (refr *Refresher) convertSource(apiSource *newsApi.ApiSource) *dao.Source {
 		Language:      apiSource.Language,
 		Country:       apiSource.Country,
 	}
-
-	return &source
 }
 
 func (refr *Refresher) convertArticle(apiArticle *newsApi.ApiArticle) *dao.Article {
-	article := dao.Article{
+	return &dao.Article{
 		ApiSourceName: refr.sourceName,
 		Author:        apiArticle.Author,
 		Title:         apiArticle.Title,
@@ -216,6 +213,4 @@ func (refr *Refresher) convertArticle(apiArticle *newsApi.ApiArticle) *dao.Artic
 		SourceId:      apiArticle.Source.Id,
 		SourceName:    apiArticle.Source.Name,
 	}
-
-	return &article
 }

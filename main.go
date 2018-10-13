@@ -4,12 +4,8 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jforcode/NewsApiSDK"
 	"github.com/jforcode/NewsFeedRefresh/dao"
+	"github.com/jforcode/Util"
 	"github.com/magiconair/properties"
-)
-
-var (
-	newsApiMain *newsApi.NewsApi
-	daoMain     *dao.Dao
 )
 
 func main() {
@@ -24,18 +20,24 @@ func main() {
 	flags := make(map[string]string)
 	flags["parseTime"] = "true"
 
-	db, err := dbUtil.GetDb(user, password, host, database, flags)
+	db, err := util.Db.GetDb(user, password, host, database, flags)
 	if err != nil {
 		panic(err)
 	}
 
-	api := &newsApi.NewsApi{}
-	api.Init(apiUrl, apiKey)
-
+	api := newsApi.NewNewsApi(apiUrl, apiKey)
 	dao := dao.New(db)
+	dailyRefresher := newsApi.NewRefresher(api)
 
-	refresher := &Refresher{}
-	err = refresher.Init(api, dao)
+	refresher := &Refresher{
+		api:                    api,
+		dao:                    dao,
+		dailyRefresher:         dailyRefresher,
+		sourceName:             "news_api",
+		defaultNumTransactions: 1000,
+	}
+
+	err = refresher.DoInitialChecks()
 	if err != nil {
 		panic(err)
 	}
