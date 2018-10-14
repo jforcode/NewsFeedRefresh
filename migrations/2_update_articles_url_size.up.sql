@@ -1,0 +1,3 @@
+ALTER TABLE articles
+MODIFY COLUMN url_to_image TEXT,
+MODIFY COLUMN url TEXT;
