@@ -1,11 +1,11 @@
 package main
 
 import (
-	"errors"
 	"strconv"
 	"time"
 
-	"github.com/golang/glog"
+	"github.com/apsdehal/go-logger"
+	"github.com/jforcode/DeepError"
 	"github.com/jforcode/NewsApiSDK"
 	"github.com/jforcode/NewsFeedRefresh/dao"
 )
@@ -19,38 +19,46 @@ type Refresher struct {
 	api                    newsApi.INewsApi
 	dailyRefresher         newsApi.IRefresher
 	dao                    dao.IDao
+	log                    *logger.Logger
+	debugAndErrorFormat    string
 	sourceName             string
 	defaultNumTransactions int
 }
 
 func (refr *Refresher) DoInitialChecks() error {
-	prefix := "main.Refresher.Init"
+	fnName := "main.Refresher.Init"
 
+	refr.log.Info("Checking remaining requests")
 	err := refr.checkRemainingRequests()
 	if err != nil {
-		return errors.New(prefix + " (check requests): " + err.Error())
+		return deepError.New(fnName, "checking requests", err)
 	}
 
+	refr.log.Info("Checking sources")
 	err = refr.checkSources()
 	if err != nil {
-		return errors.New(prefix + " (check sources): " + err.Error())
+		return deepError.New(fnName, " (check sources): ", err)
 	}
 
 	return nil
 }
 
 func (refr *Refresher) StartRefresh() error {
-	prefix := "main.Refresher.StartRefresh"
+	fnName := "main.Refresher.StartRefresh"
 
+	refr.log.Info("Getting remaining requests")
 	remainingRequests, err := refr.getRemainingRequests()
 	if err != nil {
-		return errors.New(prefix + " (get remaining requests): " + err.Error())
+		return deepError.New(fnName, " (get remaining requests): ", err)
 	}
+	refr.log.Debugf(refr.debugAndErrorFormat, fnName, "Got remaining requests", remainingRequests)
 
+	refr.log.Info("Getting sources")
 	sources, err := refr.dao.GetSources()
 	if err != nil {
-		return errors.New(prefix + " (get sources): " + err.Error())
+		return deepError.New(fnName, " (get sources): ", err)
 	}
+	refr.log.Debugf(refr.debugAndErrorFormat, fnName, "Got sources", sources)
 
 	sourceIds := make([]string, len(sources))
 	for index, source := range sources {
@@ -65,66 +73,76 @@ func (refr *Refresher) StartRefresh() error {
 		RemainingRequests: remainingRequests,
 		SourceIds:         sourceIds,
 		PageSize:          100,
+		LastMomentMinutes: 5,
 	}
 
+	refr.log.Info("Doing daily refresh")
+	refr.log.Debugf(refr.debugAndErrorFormat, fnName, "Refresher config", refresherConfig)
 	go refr.dailyRefresher.DailyRefresh(refresherConfig, chArticles, chNumRequestsUpdated, chError)
-	select {
-	case apiArticles := <-chArticles:
-		articles := make([]*dao.Article, len(apiArticles))
-		for index, apiArticle := range apiArticles {
-			articles[index] = refr.convertArticle(apiArticle)
+
+	for {
+		select {
+		case apiArticles := <-chArticles:
+			refr.log.Debugf(refr.debugAndErrorFormat, fnName, "Received articles from channel", apiArticles)
+			articles := make([]*dao.Article, len(apiArticles))
+			for index, apiArticle := range apiArticles {
+				articles[index] = refr.convertArticle(apiArticle)
+			}
+
+			refr.log.DebugF(refr.debugAndErrorFormat, fnName, "Saving articles", articles)
+			_, err := refr.dao.SaveArticles(articles)
+			if err != nil {
+				refr.log.ErrorF(refr.debugAndErrorFormat, fnName, "Saving articles", err)
+			}
+
+		case updatedRequests := <-chNumRequestsUpdated:
+			refr.log.Debugf("%s -> %s : %d", fnName, "Received updated requests from channel", updatedRequests)
+			remainingRequests -= updatedRequests
+			err := refr.setRemainingRequests(remainingRequests)
+			if err != nil {
+				refr.log.ErrorF("%s -> %s: %+v", fnName, "Setting remaining requests", err)
+			}
+
+		case err := <-chError:
+			refr.log.ErrorF("%s -> %s: %+v", fnName, "Error from channel", err)
+
 		}
-
-		_, err := refr.dao.SaveArticles(articles)
-		if err != nil {
-			glog.Errorln(prefix+" (save articles): "+err.Error(), articles)
-		}
-
-	case updatedRequests := <-chNumRequestsUpdated:
-		remainingRequests -= updatedRequests
-		err := refr.setRemainingRequests(remainingRequests)
-		if err != nil {
-			glog.Errorln(prefix+" (set remaining requests): "+err.Error(), remainingRequests)
-		}
-
-	case err := <-chError:
-		glog.Errorln(err)
-
 	}
 
 	return nil
 }
 
 func (refr *Refresher) checkSources() error {
-	prefix := "main.Refresher.checkSources"
+	fnName := "main.Refresher.checkSources"
 
 	today := time.Now().UTC()
 	monthStart := time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, today.Location())
+	refr.log.Debugf(refr.debugAndErrorFormat, fnName, "Start of month", monthStart)
 
 	flagSrcRefreshed, err := refr.dao.GetFlag("sources_refreshed", "bool")
 	if err != nil {
-		return errors.New(prefix + " (get flag sources): " + err.Error())
+		return deepError.New(fnName, " (get flag sources): ", err)
 	}
 
 	remainingRequests, err := refr.getRemainingRequests()
 	if err != nil {
-		return errors.New(prefix + " (get remaining requests): " + err.Error())
+		return deepError.New(fnName, " (get remaining requests): ", err)
 	}
 
 	if (flagSrcRefreshed == nil || flagSrcRefreshed.UpdatedAt.Before(monthStart)) && remainingRequests > 0 {
 		_, err := refr.dao.ClearSources(refr.sourceName)
 		if err != nil {
-			return errors.New(prefix + " (clear sources): " + err.Error())
+			return deepError.New(fnName, " (clear sources): ", err)
 		}
 
 		apiSourcesResponse, err := refr.api.FetchSources(&newsApi.FetchSourcesParams{})
 		if err != nil {
-			return errors.New(prefix + " (fetch sources): " + err.Error())
+			return deepError.New(fnName, " (fetch sources): ", err)
 		}
 
 		err = refr.setRemainingRequests(remainingRequests - 1)
 		if err != nil {
-			return errors.New(prefix + " (set remaining requests): " + err.Error())
+			return deepError.New(fnName, " (set remaining requests): ", err)
 		}
 
 		sources := make([]*dao.Source, len(apiSourcesResponse.Sources))
@@ -134,12 +152,12 @@ func (refr *Refresher) checkSources() error {
 
 		_, err = refr.dao.SaveSources(sources)
 		if err != nil {
-			return errors.New(prefix + " (save sources): " + err.Error())
+			return deepError.New(fnName, " (save sources): ", err)
 		}
 
 		err = refr.dao.SetFlag("sources_refreshed", "TRUE", "bool")
 		if err != nil {
-			return errors.New(prefix + " (set flag sources): " + err.Error())
+			return deepError.New(fnName, " (set flag sources): ", err)
 		}
 	}
 
@@ -147,21 +165,19 @@ func (refr *Refresher) checkSources() error {
 }
 
 func (refr *Refresher) checkRemainingRequests() error {
-	prefix := "main.Refresher.checkRemainingRequests"
+	fnName := "main.Refresher.checkRemainingRequests"
 	today := time.Now().UTC()
 	dayStart := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, today.Location())
 
 	flagNumRequests, err := refr.dao.GetFlag("remaining_requests", "int")
 	if err != nil {
-		return errors.New(prefix + " (get remaining requests): " + err.Error())
+		return deepError.New(fnName, " (get remaining requests): ", err)
 	}
 
 	if flagNumRequests == nil || flagNumRequests.UpdatedAt.Before(dayStart) {
-		glog.Infoln("resetting remaining requests for today.", flagNumRequests)
-
 		err := refr.setRemainingRequests(refr.defaultNumTransactions)
 		if err != nil {
-			return errors.New(prefix + " (set remaining requests): " + err.Error())
+			return deepError.New(fnName, "setting remaining requests", err)
 		}
 	}
 
@@ -169,13 +185,13 @@ func (refr *Refresher) checkRemainingRequests() error {
 }
 
 func (refr *Refresher) getRemainingRequests() (int, error) {
-	prefix := "main.Refresher.getRemainingRequests"
+	fnName := "main.Refresher.getRemainingRequests"
 	flagNumRequests, err := refr.dao.GetFlag("remaining_requests", dao.FlagTypeInt)
 	if err != nil {
-		return -1, errors.New(prefix + " (get flag) " + err.Error())
+		return -1, deepError.New(fnName, "getting flag", err)
 	}
 	if flagNumRequests == nil {
-		return -1, errors.New(prefix + " flag for remaining requests should not be nil")
+		return -1, deepError.DeepErr{Function: fnName, Message: "flag for remaining requests should not be nil"}
 	}
 
 	remainingRequests := flagNumRequests.Value.(int)
